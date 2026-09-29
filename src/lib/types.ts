@@ -15,6 +15,7 @@ export interface Trade {
   setup: string
   emotion: string
   followedPlan: boolean
+  confidence?: number // optional 1-5 rating of how sure you were before entering
   mistakes: string[]
   notes: string
   screenshots?: string[] // downscaled JPEG data URLs

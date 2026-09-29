@@ -74,6 +74,14 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
           <select className="input" value={t.setup} onChange={(e) => set('setup', e.target.value)}>{settings.setups.map((s) => <option key={s}>{s}</option>)}</select></div>
         <div><label className="label">Emotion</label>
           <select className="input" value={t.emotion} onChange={(e) => set('emotion', e.target.value)}>{EMOTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className="label">Confidence (optional)</label>
+          <div className="seg w-full" role="group" aria-label="Confidence from 1 to 5">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} type="button" className="flex-1" aria-pressed={t.confidence === n}
+                title={['Very unsure', 'Unsure', 'Neutral', 'Confident', 'Very confident'][n - 1]}
+                onClick={() => set('confidence', t.confidence === n ? undefined : n)}>{n}</button>
+            ))}
+          </div></div>
         <div className="flex items-end pb-1.5"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={t.followedPlan} onChange={(e) => set('followedPlan', e.target.checked)} /> Followed my plan</label></div>
       </div>
       <div>

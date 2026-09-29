@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { groupNet, summarize, type Row } from '../lib/stats'
 import type { Settings } from '../lib/types'
 import { monthlyCapital } from '../lib/capital'
@@ -8,6 +9,7 @@ import {
 } from '../lib/insights'
 import { inr, pct, pnlColor } from '../lib/format'
 import { localDate } from '../lib/week'
+import { afterBadDay, bestWorstDays, confidence, hhmm, noteWords, searchNotes, snippet } from '../lib/habits'
 import BarPnl from '../components/BarPnl'
 import PageTitle from '../components/PageTitle'
 import { Card, CountBars, Empty, Section, Table, mins } from '../components/InsightBits'
@@ -42,6 +44,8 @@ const prevMonthKey = (key: string) => {
 export default function Insights({ rows: allRows, settings, save }: { rows: Row[]; settings: Settings; save: (s: Settings) => void }) {
   const [mode, setMode] = useState<'split' | 'full'>('split')
   const [scope, setScope] = useState<'all' | 'month'>('all')
+  const [noteQ, setNoteQ] = useState('')
+  const navigate = useNavigate()
   const currentMonth = localDate().slice(0, 7)
   const [month, setMonth] = useState(currentMonth)
 
@@ -81,6 +85,10 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
     disc: discipline(rows, settings.exitMistakes),
     size: sizing(rows),
     gap: reentry(rows),
+    bw: bestWorstDays(rows),
+    after: afterBadDay(rows),
+    conf: confidence(rows),
+    words: noteWords(rows),
     over: overtrading(rows),
     setups: scorecard(rows, (r) => r.trade.setup || 'None'),
     symbols: symbolBoard(rows),
@@ -94,7 +102,10 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
 
   if (allRows.length === 0) return <div className="card py-12 text-center text-muted">Log some trades to see behaviour insights.</div>
 
-  const { tilt: t, payoff: p, adh: a, disc, size, gap } = d
+  const { tilt: t, payoff: p, adh: a, disc, size, gap, bw, after, conf, words } = d
+  const sgn = (n: number) => (n > 0 ? '+' : '') + inr(n)
+  const noteHits = searchNotes(rows, noteQ)
+  const notesCount = rows.filter((r) => r.trade.notes.trim()).length
   const discMax = Math.max(Math.abs(disc.actual), Math.abs(disc.disciplined), 1)
   const discV = disciplineVerdict(disc)
   const sizeEnough = size.count >= 5
@@ -303,6 +314,109 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             )}
           </Card>
         </div>
+        <Card title="Best vs worst days" note={bw.enough ? `Your ${bw.k} best and ${bw.k} worst trading days side by side.` : undefined}>
+          {!bw.enough ? <Empty>Need at least 6 trading days to compare ({bw.days} so far).</Empty> : (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                {([['Best days', bw.best, 'text-up'], ['Worst days', bw.worst, 'text-down']] as const).map(([label, g, cls]) => (
+                  <div key={label} className="rounded-xl border border-line p-3.5">
+                    <div className={`text-sm font-semibold ${cls}`}>{label} <span className="num font-normal text-muted">· avg {sgn(g.profile.avgNet)} a day</span></div>
+                    <ul className="mb-3 mt-2 space-y-0.5 text-xs">
+                      {g.days.map((dd) => <li key={dd.date} className="flex justify-between text-muted"><span>{dd.date} · {dd.count} {dd.count === 1 ? 'trade' : 'trades'}</span><N v={dd.net} /></li>)}
+                    </ul>
+                    <dl className="space-y-1 border-t border-line pt-2 text-sm">
+                      {([
+                        ['Trades a day', g.profile.tradesPerDay.toFixed(1)],
+                        ['Win rate', pct(g.profile.winRate)],
+                        ['Followed plan', pct(g.profile.planRate)],
+                        ['Trades with a mistake', pct(g.profile.mistakeRate)],
+                        ['First trade around', g.profile.firstEntry !== null ? hhmm(g.profile.firstEntry) : '–'],
+                        ['Main setup', g.profile.topSetup?.name ?? '–'],
+                        ['Main emotion', g.profile.topEmotion?.name ?? '–'],
+                      ] as const).map(([k, v]) => <div key={k} className="flex justify-between"><dt className="text-muted">{k}</dt><dd className="num">{v}</dd></div>)}
+                    </dl>
+                  </div>
+                ))}
+              </div>
+              <ul className="mt-3 space-y-1 rounded-xl border border-accent/30 bg-accent/10 px-3.5 py-2.5 text-sm">
+                {bw.findings.map((f, i) => <li key={i}>• {f}</li>)}
+              </ul>
+            </>
+          )}
+        </Card>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card title="The day after a losing day" note="Your next trading day, depending on how the previous one ended.">
+            {after.afterLoss.days + after.afterWin.days === 0 ? <Empty>Need trades on at least two different days.</Empty> : (
+              <>
+                <Table head={['Next day after…', 'Days', 'Trades', 'Win rate', 'Avg day P&L', 'Size']}
+                  rows={([['a losing day', after.afterLoss], ['a winning day', after.afterWin], ['2+ losing days', after.afterTwoLosses]] as const)
+                    .filter(([, g]) => g.days > 0)
+                    .map(([l, g]) => [l, g.days, g.tradesPerDay.toFixed(1), pct(g.winRate), <N key={l} v={g.avgNet} />, g.sizeRatio ? x(g.sizeRatio) : '–'])} />
+                <ul className="mt-3 space-y-1 text-sm">{after.findings.map((f, i) => <li key={i}>• {f}</li>)}</ul>
+                <p className="mt-2 text-xs text-muted">Size = average position size compared with your overall median.</p>
+              </>
+            )}
+          </Card>
+
+          <Card title="Confidence vs results" note="Do the trades you feel surest about actually do better?">
+            {conf.rated === 0 ? <Empty>{conf.verdict}</Empty> : (
+              <>
+                <Table head={['Rating', 'Trades', 'Win rate', 'Avg P&L']}
+                  rows={conf.levels.filter((l) => l.count > 0).map((l) => [`${l.level} ${'★'.repeat(l.level)}`, l.count, pct(l.winRate), <N key={l.level} v={l.avgNet} />])} />
+                <p className="mt-3 text-sm">{conf.verdict}</p>
+                {conf.unrated > 0 && <p className="mt-1 text-xs text-muted">{conf.unrated} trades have no rating and are excluded.</p>}
+              </>
+            )}
+          </Card>
+        </div>
+
+        <Card title="Notes" note="Search what you wrote, or tap a recurring word or phrase to see what those trades cost you.">
+          {notesCount === 0 ? <Empty>Write notes on your trades to search and analyse them here.</Empty> : (
+            <>
+              <input className="input" placeholder="Search your notes… e.g. chased, too early, revenge" value={noteQ} onChange={(e) => setNoteQ(e.target.value)} aria-label="Search notes" />
+              {words.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {words.map((w) => (
+                    <button key={w.phrase} type="button" onClick={() => setNoteQ(w.phrase)}
+                      className={`chip transition hover:border-accent/60 ${noteQ.toLowerCase() === w.phrase ? '!border-accent !text-fg' : ''}`}
+                      title={`${w.count} trades · net ${sgn(w.net)} · win rate ${w.winRate.toFixed(0)}%`}>
+                      {w.phrase} <b className="num text-fg">{w.count}</b> <span className={`num ${pnlColor(w.net)}`}>{sgn(w.net)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {words.length === 0 && <p className="mt-3 text-xs text-muted">No word appears in two or more notes yet.</p>}
+              {noteQ.trim() && (
+                noteHits.matches.length === 0 ? <p className="mt-4 text-sm text-muted">No notes mention “{noteQ.trim()}”.</p> : (
+                  <div className="mt-4">
+                    <div className="mb-2 flex flex-wrap gap-2 text-xs">
+                      <span className="chip">{noteHits.matches.length} {noteHits.matches.length === 1 ? 'trade' : 'trades'}</span>
+                      <span className="chip">Net <b className={`num ${pnlColor(noteHits.summary!.net)}`}>{sgn(noteHits.summary!.net)}</b></span>
+                      <span className="chip">Avg <b className={`num ${pnlColor(noteHits.summary!.expectancy)}`}>{sgn(noteHits.summary!.expectancy)}</b></span>
+                      <span className="chip">Win rate <b className="num text-fg">{pct(noteHits.summary!.winRate)}</b></span>
+                    </div>
+                    <div className="-mx-2 flex flex-col">
+                      {noteHits.matches.slice(0, 8).map(({ trade: tr, res }) => {
+                        const sn = snippet(tr.notes, noteQ)
+                        return (
+                          <button key={tr.id} type="button" onClick={() => navigate('/trades', { state: { open: tr.id } })}
+                            className="flex items-start gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-panel2/70">
+                            <div className="w-24 shrink-0 text-xs text-muted">{tr.date}<div className="text-sm font-semibold text-fg">{tr.symbol}</div></div>
+                            <div className="min-w-0 flex-1 text-sm">{sn.pre}<mark className="rounded bg-accent/30 px-0.5 text-fg">{sn.hit}</mark>{sn.post}</div>
+                            <div className={`num shrink-0 text-sm font-semibold ${pnlColor(res.net)}`}>{sgn(res.net)}</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {noteHits.matches.length > 8 && <p className="mt-1 text-xs text-muted">and {noteHits.matches.length - 8} more…</p>}
+                  </div>
+                )
+              )}
+            </>
+          )}
+        </Card>
+
         <BarPnl title="Net P&L by emotion" data={d.emotion} />
       </Section>
 

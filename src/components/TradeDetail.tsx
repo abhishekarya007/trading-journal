@@ -196,6 +196,7 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
               <div className="rounded-xl border border-line p-3.5">
                 <h3 className="mb-2 text-sm font-semibold">Discipline</h3>
                 <p className="text-sm">{t.followedPlan ? <span className="text-up">✓ Followed the plan</span> : <span className="text-warn">⚠ Did not follow the plan</span>}</p>
+                {t.confidence && <p className="mt-1 text-sm text-muted">Confidence: <b className="text-fg">{t.confidence}/5</b></p>}
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {t.mistakes.length ? t.mistakes.map((m) => <span key={m} className="rounded-full border border-down/50 bg-down/10 px-2.5 py-0.5 text-xs text-down">{m}</span>) : <span className="text-xs text-muted">No mistakes tagged</span>}
                 </div>
