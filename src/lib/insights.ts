@@ -191,7 +191,7 @@ export function overtrading(rows: Row[]) {
 
 // 11. Stop-loss / target adherence (price-based R, ignores charges)
 export function adherence(rows: Row[]) {
-  let losersWithSl = 0, heldPast = 0, cutEarly = 0, asPlanned = 0, overshoot = 0
+  let losersWithSl = 0, heldPast = 0, cutEarly = 0, asPlanned = 0, overshoot = 0, heldPastAmount = 0
   let targetTrades = 0, hit = 0, exitedEarly = 0, leftR = 0, leftN = 0, lossWithTarget = 0, leftAmount = 0
   const plannedRR: number[] = []
 
@@ -202,7 +202,7 @@ export function adherence(rows: Row[]) {
 
     if (moveR !== null && moveR < 0) {
       losersWithSl++
-      if (moveR < -1.05) { heldPast++; overshoot += -moveR - 1 }
+      if (moveR < -1.05) { heldPast++; overshoot += -moveR - 1; heldPastAmount += (-moveR - 1) * risk * t.qty }
       else if (moveR > -0.95) cutEarly++
       else asPlanned++
     }
@@ -222,6 +222,7 @@ export function adherence(rows: Row[]) {
   return {
     losersWithSl, heldPast, cutEarly, asPlanned,
     avgOvershootR: heldPast ? overshoot / heldPast : 0,
+    heldPastAmount, // extra loss beyond the planned stop-loss, in rupees before charges
     targetTrades, hit, exitedEarly, lossWithTarget,
     avgLeftR: leftN ? leftR / leftN : 0,
     leftAmount, // up to this much more if every such trade had reached its target

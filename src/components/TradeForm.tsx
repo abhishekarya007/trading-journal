@@ -6,6 +6,7 @@ import { localDate } from '../lib/week'
 import { inr, pnlColor } from '../lib/format'
 import { fileToDataUrl } from '../lib/image'
 import { evaluateDay } from '../lib/risk'
+import { validateTrade } from '../lib/validate'
 import type { Row } from '../lib/stats'
 import RiskBanner from './RiskBanner'
 
@@ -48,9 +49,13 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
   const valid = t.symbol.trim() && t.qty > 0 && t.entryPrice > 0 && t.exitPrice > 0
   const preview = useMemo(() => (valid ? calcTrade(t, settings.rates) : null), [t, valid, settings.rates])
 
+  const check = useMemo(() => validateTrade(t, rows.map((r) => r.trade), today()), [t, rows])
+  const canSave = !!valid && check.errors.length === 0
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!valid) return
+    if (!canSave) return
+    if (check.duplicate && !confirm(`This looks identical to a ${t.symbol.trim().toUpperCase()} trade you already logged on ${t.date}. Add it anyway?`)) return
     onSave({ ...t, symbol: t.symbol.trim().toUpperCase() })
     if (!initial) setT(blank(settings))
   }
@@ -115,6 +120,12 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
           </div>
         )}
       </div>
+      {(check.errors.length > 0 || check.warnings.length > 0) && (
+        <ul className="space-y-1 rounded-xl border border-line bg-panel2/40 px-3.5 py-2.5 text-sm" aria-live="polite">
+          {check.errors.map((m) => <li key={m} className="text-down">✕ {m}</li>)}
+          {check.warnings.map((m) => <li key={m} className="text-warn">⚠ {m}</li>)}
+        </ul>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-sm">
           {preview ? (
@@ -124,7 +135,7 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
         </div>
         <div className="flex gap-2">
           {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>}
-          <button className="btn disabled:opacity-50" disabled={!valid}>{initial ? 'Update trade' : 'Add trade'}</button>
+          <button className="btn disabled:opacity-50" disabled={!canSave}>{initial ? 'Update trade' : 'Add trade'}</button>
         </div>
       </div>
     </form>

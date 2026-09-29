@@ -10,6 +10,7 @@ import { axisTick, COLORS, tooltipStyle } from '../lib/theme'
 import { nseStatus } from '../lib/market'
 import { evaluateDay } from '../lib/risk'
 import { monthlyCapital } from '../lib/capital'
+import CoachCard from '../components/CoachCard'
 import AnimatedNumber from '../components/AnimatedNumber'
 import Ring from '../components/Ring'
 import Sparkline from '../components/Sparkline'
@@ -187,6 +188,8 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
         <Stat label="Max drawdown" icon={<IconDown />} value={inr(s.maxDrawdown)} className="text-down"
           sub="Largest peak-to-trough fall" spark={curve.map((p) => p.dd)} tone="down" />
       </div>
+
+      <CoachCard rows={rows} settings={settings} weekKey={weekStart(todayKey)} />
 
       {/* Equity + form */}
       <div className="grid gap-5 lg:grid-cols-3">

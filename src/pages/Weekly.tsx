@@ -7,6 +7,7 @@ import { addDays, formatRange, localDate, weekDays, weekStart } from '../lib/wee
 import { inr, pct, pnlColor } from '../lib/format'
 import Stat from '../components/Stat'
 import PageTitle from '../components/PageTitle'
+import CoachCard from '../components/CoachCard'
 
 const emptyReview = (ws: string): WeeklyReview => ({ weekStart: ws, wentWell: '', improve: '', focus: '' })
 
@@ -103,6 +104,8 @@ export default function Weekly({ rows, settings }: { rows: Row[]; settings: Sett
           </div>
         </>
       )}
+
+      <CoachCard rows={rows} settings={settings} weekKey={ws} onFocusSaved={(text) => setReview((r) => ({ ...r, focus: text }))} />
 
       <div className="card space-y-3">
         <h3 className="text-sm font-semibold">Reflection <span className="text-xs font-normal text-muted">(saved automatically)</span></h3>
