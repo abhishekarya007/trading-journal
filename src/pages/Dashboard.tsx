@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { axisTick, COLORS, tooltipStyle } from '../lib/theme'
+import PnlHero from '../components/PnlHero'
+import PageTitle from '../components/PageTitle'
 import type { Settings } from '../lib/types'
 import { equityCurve, groupNet, summarize, type Row } from '../lib/stats'
 import { localDate } from '../lib/week'
@@ -26,27 +29,40 @@ export default function Dashboard({ rows, settings }: { rows: Row[]; settings: S
   const warnings = useMemo(() => evaluateDay(rows, today, settings.risk), [rows, today, settings.risk])
 
   if (rows.length === 0)
-    return <div className="card py-12 text-center text-slate-500">No trades yet. Head to <b>Trades</b> to log your first one.</div>
+    return (
+      <>
+        <PageTitle title="Dashboard" sub="Your performance at a glance" />
+        <div className="card py-14 text-center text-muted">No trades yet. Head to <b className="text-fg">Trades</b> to log your first one.</div>
+      </>
+    )
 
   return (
     <div className="space-y-4">
+      <PageTitle title="Dashboard" sub="Your performance at a glance" />
       <RiskBanner warnings={warnings} title="Today's risk rules" />
+      <PnlHero rows={rows} startingCapital={settings.startingCapital} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Net P&L" value={inr(s.net)} className={pnlColor(s.net)} sub={`${s.count} trades · charges ${inr(s.charges)}`} />
         <Stat label="Win rate" value={pct(s.winRate)} sub={`Avg win ${inr(s.avgWin)} · Avg loss ${inr(s.avgLoss)}`} />
         <Stat label="Profit factor" value={Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'} sub={`Expectancy ${inr(s.expectancy)}/trade`} />
-        <Stat label="Max drawdown" value={inr(s.maxDrawdown)} className="text-rose-600 dark:text-rose-400" sub={s.avgR !== null ? `Avg R ${s.avgR.toFixed(2)}` : 'Add stop-losses to see R'} />
+        <Stat label="Max drawdown" value={inr(s.maxDrawdown)} className="text-down" sub={s.avgR !== null ? `Avg R ${s.avgR.toFixed(2)}` : 'Add stop-losses to see R'} />
       </div>
 
       <div className="card">
-        <h3 className="mb-2 text-sm font-medium">Equity curve (starting {inr(settings.startingCapital)})</h3>
+        <h3 className="mb-3 text-sm font-semibold">Equity curve (starting {inr(settings.startingCapital)})</h3>
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={curve}>
-            <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-            <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} width={60} domain={['auto', 'auto']} />
-            <Tooltip formatter={(v) => [inr(Number(v)), 'Equity']} />
-            <Area dataKey="equity" stroke="#6366f1" fill="#6366f1" fillOpacity={0.15} />
+            <defs>
+              <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={COLORS.accent} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={COLORS.grid} vertical={false} />
+            <XAxis dataKey="date" tick={axisTick} tickLine={false} axisLine={false} minTickGap={30} />
+            <YAxis tick={axisTick} width={60} domain={['auto', 'auto']} tickLine={false} axisLine={false} />
+            <Tooltip {...tooltipStyle} formatter={(v) => [inr(Number(v)), 'Equity']} />
+            <Area dataKey="equity" stroke={COLORS.accent} strokeWidth={2} fill="url(#eqFill)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>

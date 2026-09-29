@@ -55,11 +55,11 @@ export default function TradeForm({ settings, initial, rows, onSave, onCancel }:
   }
 
   return (
-    <form onSubmit={submit} className="card space-y-3">
+    <form onSubmit={submit} className="space-y-4">
       <RiskBanner warnings={warnings} title={`Risk rules for ${t.date} — think before adding another trade`} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div><label className="label">Date</label><input type="date" className="input" value={t.date} onChange={(e) => set('date', e.target.value)} required /></div>
-        <div><label className="label">Symbol</label><input className="input uppercase" placeholder="RELIANCE" value={t.symbol} onChange={(e) => set('symbol', e.target.value)} required /></div>
+        <div><label className="label">Symbol</label><input autoFocus={!initial} className="input uppercase" placeholder="RELIANCE" value={t.symbol} onChange={(e) => set('symbol', e.target.value)} required /></div>
         <div><label className="label">Side</label>
           <select className="input" value={t.side} onChange={(e) => set('side', e.target.value as Trade['side'])}><option>Long</option><option>Short</option></select></div>
         <div><label className="label">Quantity</label><input {...num('qty')} step={1} /></div>
@@ -83,7 +83,7 @@ export default function TradeForm({ settings, initial, rows, onSave, onCancel }:
             return (
               <button type="button" key={m}
                 onClick={() => set('mistakes', on ? t.mistakes.filter((x) => x !== m) : [...t.mistakes, m])}
-                className={`rounded-full border px-2.5 py-1 text-xs ${on ? 'border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'border-slate-300 dark:border-slate-700'}`}>{m}</button>
+                className={`rounded-full border px-2.5 py-1 text-xs ${on ? 'border-down bg-down/10 text-down' : 'border-line'}`}>{m}</button>
             )
           })}
         </div>
@@ -91,15 +91,15 @@ export default function TradeForm({ settings, initial, rows, onSave, onCancel }:
       <div><label className="label">Notes</label><textarea className="input" rows={2} value={t.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Why did you take it? What would you do differently?" /></div>
       <div onPaste={(e) => { const f = [...e.clipboardData.files]; if (f.length) { e.preventDefault(); addImages(f) } }}>
         <label className="label">Chart screenshots (choose files, or paste an image anywhere in this box)</label>
-        <input type="file" accept="image/*" multiple className="text-sm" onChange={(e) => { addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
+        <input type="file" accept="image/*" multiple className="block text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-panel2 file:px-3 file:py-1.5 file:text-sm file:text-fg hover:file:bg-line" onChange={(e) => { addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
         <input className="input mt-2" placeholder="Click here and press Ctrl/Cmd+V to paste a screenshot" readOnly />
-        {imgError && <p className="mt-1 text-xs text-rose-600">{imgError}</p>}
+        {imgError && <p className="mt-1 text-xs text-down">{imgError}</p>}
         {!!t.screenshots?.length && (
           <div className="mt-2 flex flex-wrap gap-2">
             {t.screenshots.map((src, i) => (
               <div key={i} className="relative">
-                <img src={src} alt={`Screenshot ${i + 1}`} className="h-20 rounded border border-slate-300 dark:border-slate-700" />
-                <button type="button" aria-label="Remove screenshot" className="absolute -right-1.5 -top-1.5 rounded-full bg-rose-600 px-1.5 text-xs text-white"
+                <img src={src} alt={`Screenshot ${i + 1}`} className="h-20 rounded border border-line" />
+                <button type="button" aria-label="Remove screenshot" className="absolute -right-1.5 -top-1.5 rounded-full bg-down px-1.5 text-xs text-white"
                   onClick={() => set('screenshots', t.screenshots!.filter((_, j) => j !== i))}>×</button>
               </div>
             ))}
@@ -111,7 +111,7 @@ export default function TradeForm({ settings, initial, rows, onSave, onCancel }:
           {preview ? (
             <>Gross {inr(preview.gross, 2)} · Charges {inr(preview.charges.total, 2)} · <b className={pnlColor(preview.net)}>Net {inr(preview.net, 2)}</b>
               {preview.rMultiple !== null && <> · {preview.rMultiple}R</>}</>
-          ) : <span className="text-slate-500">Fill symbol, qty and prices to preview net P&amp;L</span>}
+          ) : <span className="text-muted">Fill symbol, qty and prices to preview net P&amp;L</span>}
         </div>
         <div className="flex gap-2">
           {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>}

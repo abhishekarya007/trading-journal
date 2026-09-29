@@ -5,6 +5,7 @@ import {
 } from '../lib/insights'
 import { inr, pct, pnlColor } from '../lib/format'
 import BarPnl from '../components/BarPnl'
+import PageTitle from '../components/PageTitle'
 import { Card, CountBars, Empty, Section, Table, mins } from '../components/InsightBits'
 
 const N = ({ v }: { v: number }) => <span className={pnlColor(v)}>{inr(v)}</span>
@@ -28,7 +29,7 @@ export default function Insights({ rows }: { rows: Row[] }) {
     adh: adherence(rows),
   }), [rows])
 
-  if (rows.length === 0) return <div className="card py-12 text-center text-slate-500">Log some trades to see behaviour insights.</div>
+  if (rows.length === 0) return <div className="card py-12 text-center text-muted">Log some trades to see behaviour insights.</div>
 
   const { tilt: t, payoff: p, adh: a } = d
   const tiltMsg =
@@ -42,13 +43,14 @@ export default function Insights({ rows }: { rows: Row[] }) {
 
   return (
     <div className="space-y-8">
+      <PageTitle title="Insights" sub="What your trades say about your habits and edge" />
       <Section title="Behaviour">
         <div className="grid gap-3 md:grid-cols-2">
           {([['Followed plan', d.followed], ['Broke plan', d.broke]] as const).map(([label, x]) => (
             <div className="card" key={label}>
-              <div className="text-xs text-slate-500">{label}</div>
+              <div className="text-xs text-muted">{label}</div>
               <div className={`mt-1 text-xl font-semibold ${pnlColor(x.net)}`}>{inr(x.net)}</div>
-              <div className="text-xs text-slate-500">{x.count} trades · win rate {pct(x.winRate)} · expectancy {inr(x.expectancy)}/trade</div>
+              <div className="text-xs text-muted">{x.count} trades · win rate {pct(x.winRate)} · expectancy {inr(x.expectancy)}/trade</div>
             </div>
           ))}
         </div>
@@ -59,7 +61,7 @@ export default function Insights({ rows }: { rows: Row[] }) {
               rows={d.mistakes.table.map((m) => [m.tag, m.count, <N v={m.net} />, <N v={m.avgNet} />, <N v={m.netWithout} />])} />
           )}
           {d.mistakes.clean.count > 0 && (
-            <p className="mt-2 text-xs text-slate-500">Trades with no mistakes: {d.mistakes.clean.count}, net <N v={d.mistakes.clean.net} />, avg <N v={d.mistakes.clean.avgNet} /> per trade.</p>
+            <p className="mt-2 text-xs text-muted">Trades with no mistakes: {d.mistakes.clean.count}, net <N v={d.mistakes.clean.net} />, avg <N v={d.mistakes.clean.avgNet} /> per trade.</p>
           )}
         </Card>
 
@@ -95,7 +97,7 @@ export default function Insights({ rows }: { rows: Row[] }) {
           <div className="grid gap-4 md:grid-cols-2">
             {([['Best', d.symbols.slice(0, 5).filter((s) => s.net > 0)], ['Worst', [...d.symbols].reverse().slice(0, 5).filter((s) => s.net < 0)]] as const).map(([label, list]) => (
               <div key={label}>
-                <div className="mb-1 text-xs font-medium text-slate-500">{label}</div>
+                <div className="mb-1 text-xs font-medium text-muted">{label}</div>
                 {list.length === 0 ? <Empty>None</Empty> : (
                   <Table head={['Symbol', 'Trades', 'Win rate', 'Net']} rows={list.map((s) => [s.symbol, s.count, pct(s.winRate), <N v={s.net} />])} />
                 )}
@@ -108,7 +110,7 @@ export default function Insights({ rows }: { rows: Row[] }) {
           {d.tod.data.length ? <BarPnl title="Net P&L by entry hour" data={d.tod.data} /> : <Card title="Net P&L by entry hour"><Empty>Add entry times to your trades to see this.</Empty></Card>}
           {d.hold.buckets.length ? <BarPnl title="Net P&L by holding time" data={d.hold.buckets} /> : <Card title="Net P&L by holding time"><Empty>Add entry and exit times to intraday trades to see this.</Empty></Card>}
         </div>
-        {d.tod.data.length > 0 && d.tod.missing > 0 && <p className="text-xs text-slate-500">{d.tod.missing} trades have no entry time and are excluded from the hour chart.</p>}
+        {d.tod.data.length > 0 && d.tod.missing > 0 && <p className="text-xs text-muted">{d.tod.missing} trades have no entry time and are excluded from the hour chart.</p>}
         {d.hold.count > 0 && (
           <p className="text-sm">
             Average hold: winners <b>{mins(d.hold.avgWinMin)}</b>, losers <b>{mins(d.hold.avgLossMin)}</b>
@@ -125,10 +127,10 @@ export default function Insights({ rows }: { rows: Row[] }) {
           <Card title="Win/loss size" note="Do your winners pay for your losers?">
             {p.ratio === null ? <Empty /> : (
               <div className="space-y-1 text-sm">
-                <p>Average win <b className="text-emerald-600">{inr(p.avgWin)}</b> · average loss <b className="text-rose-600">{inr(p.avgLoss)}</b></p>
+                <p>Average win <b className="text-up">{inr(p.avgWin)}</b> · average loss <b className="text-down">{inr(p.avgLoss)}</b></p>
                 <p>Payoff ratio: <b>{p.ratio.toFixed(2)}</b></p>
                 <p>Break-even win rate at this payoff: <b>{pct(p.breakevenWinRate!)}</b></p>
-                <p>Your actual win rate: <b>{pct(p.winRate)}</b> — {p.winRate >= p.breakevenWinRate! ? <span className="text-emerald-600">above break-even ✅</span> : <span className="text-rose-600">below break-even ⚠</span>}</p>
+                <p>Your actual win rate: <b>{pct(p.winRate)}</b> — {p.winRate >= p.breakevenWinRate! ? <span className="text-up">above break-even ✅</span> : <span className="text-down">below break-even ⚠</span>}</p>
               </div>
             )}
           </Card>
@@ -140,7 +142,7 @@ export default function Insights({ rows }: { rows: Row[] }) {
               <div className="space-y-1 text-sm">
                 <p>Exited at the stop as planned: <b>{a.asPlanned}</b> of {a.losersWithSl}</p>
                 <p>Cut before the stop: <b>{a.cutEarly}</b></p>
-                <p className={a.heldPast ? 'text-rose-600' : ''}>Held past the stop: <b>{a.heldPast}</b>{a.heldPast > 0 && <> (avg {a.avgOvershootR.toFixed(1)}R beyond the stop)</>}</p>
+                <p className={a.heldPast ? 'text-down' : ''}>Held past the stop: <b>{a.heldPast}</b>{a.heldPast > 0 && <> (avg {a.avgOvershootR.toFixed(1)}R beyond the stop)</>}</p>
               </div>
             )}
           </Card>

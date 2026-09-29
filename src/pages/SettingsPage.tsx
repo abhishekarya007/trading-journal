@@ -13,6 +13,8 @@ const RATE_LABELS: Record<keyof ChargeRates, string> = {
   gstPct: 'GST (%)',
 }
 
+import PageTitle from '../components/PageTitle'
+
 interface Props { settings: Settings; save: (s: Settings) => void; refresh: () => void }
 
 export default function SettingsPage({ settings, save, refresh }: Props) {
@@ -38,8 +40,9 @@ export default function SettingsPage({ settings, save, refresh }: Props) {
 
   return (
     <div className="space-y-4">
+      <PageTitle title="Settings" sub="Capital, risk rules, charge rates and backup" />
       <div className="card space-y-3">
-        <h2 className="text-sm font-medium">General</h2>
+        <h2 className="text-sm font-semibold">General</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <div><label className="label">Starting capital (₹)</label>
             <input type="number" className="input" value={settings.startingCapital} onChange={(e) => save({ ...settings, startingCapital: Number(e.target.value) })} /></div>
@@ -51,7 +54,7 @@ export default function SettingsPage({ settings, save, refresh }: Props) {
       </div>
 
       <div className="card space-y-3">
-        <h2 className="text-sm font-medium">Risk rules <span className="text-xs font-normal text-slate-500">(0 turns a rule off)</span></h2>
+        <h2 className="text-sm font-semibold">Risk rules <span className="text-xs font-normal text-muted">(0 turns a rule off)</span></h2>
         <div className="grid gap-3 md:grid-cols-3">
           {([['dailyLossLimit', 'Daily loss limit (₹)'], ['maxConsecutiveLosses', 'Max consecutive losses'], ['maxTradesPerDay', 'Max trades per day']] as const).map(([k, label]) => (
             <div key={k}><label className="label">{label}</label>
@@ -63,10 +66,10 @@ export default function SettingsPage({ settings, save, refresh }: Props) {
 
       <div className="card space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Charge rates</h2>
+          <h2 className="text-sm font-semibold">Charge rates</h2>
           <button className="btn-ghost" onClick={() => save({ ...settings, rates: DEFAULT_SETTINGS.rates })}>Reset to defaults</button>
         </div>
-        <p className="text-xs text-amber-600 dark:text-amber-400">These defaults are approximate. Verify them against Dhan's brokerage page and current NSE/SEBI rates; changes apply to all trades immediately.</p>
+        <p className="text-xs text-warn">These defaults are approximate. Verify them against Dhan's brokerage page and current NSE/SEBI rates; changes apply to all trades immediately.</p>
         <div className="grid gap-3 md:grid-cols-3">
           {(Object.keys(RATE_LABELS) as (keyof ChargeRates)[]).map((k) => (
             <div key={k}><label className="label">{RATE_LABELS[k]}</label>
@@ -77,8 +80,8 @@ export default function SettingsPage({ settings, save, refresh }: Props) {
       </div>
 
       <div className="card space-y-2">
-        <h2 className="text-sm font-medium">Backup</h2>
-        <p className="text-xs text-slate-500">Data is stored in this browser only. Export regularly.</p>
+        <h2 className="text-sm font-semibold">Backup</h2>
+        <p className="text-xs text-muted">Data is stored in this browser only. Export regularly.</p>
         <div className="flex gap-2">
           <button className="btn" onClick={doExport}>Export JSON</button>
           <button className="btn-ghost" onClick={() => file.current?.click()}>Import JSON</button>
