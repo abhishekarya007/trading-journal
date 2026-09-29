@@ -11,11 +11,20 @@ import type { Row } from '../lib/stats'
 import RiskBanner from './RiskBanner'
 
 const today = () => localDate()
+const MORE_KEY = 'tj-form-more'
 
 const blank = (settings: Settings): Trade => ({
   date: today(), symbol: '', side: 'Long', qty: 0, entryPrice: 0, exitPrice: 0,
   setup: settings.setups[0] ?? '', emotion: 'Calm', followedPlan: true, mistakes: [], notes: '',
 })
+
+/** How many of the optional extras are filled in, for the "More details" badge. */
+const extrasFilled = (t: Trade) =>
+  [t.entryTime, t.exitTime, t.confidence, t.mistakes.length > 0, t.notes.trim(), t.screenshots?.length, t.emotion !== 'Calm'].filter(Boolean).length
+
+const rememberedMore = () => {
+  try { return localStorage.getItem(MORE_KEY) === '1' } catch { return false }
+}
 
 interface Props {
   settings: Settings
@@ -29,7 +38,15 @@ interface Props {
 export default function TradeForm({ settings, initial, prefill, rows, onSave, onCancel }: Props) {
   const [t, setT] = useState<Trade>(initial ?? prefill ?? blank(settings))
   const [imgError, setImgError] = useState('')
+  // New trades follow your last choice; editing opens the extras only if the trade has some.
+  const [more, setMore] = useState(() => (initial ? extrasFilled(initial) > 0 : rememberedMore()))
   const warnings = useMemo(() => evaluateDay(rows, t.date, settings.risk), [rows, t.date, settings.risk])
+
+  const toggleMore = () => {
+    const next = !more
+    setMore(next)
+    try { localStorage.setItem(MORE_KEY, next ? '1' : '0') } catch { /* ignore */ }
+  }
 
   const addImages = async (files: File[]) => {
     setImgError('')
@@ -51,11 +68,13 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
 
   const check = useMemo(() => validateTrade(t, rows.map((r) => r.trade), today()), [t, rows])
   const canSave = !!valid && check.errors.length === 0
+  // A problem in a hidden field must not be hidden with it.
+  const showMore = more || check.errors.some((e) => e.toLowerCase().includes('time'))
+  const filled = extrasFilled(t)
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSave) return
-    if (check.duplicate && !confirm(`This looks identical to a ${t.symbol.trim().toUpperCase()} trade you already logged on ${t.date}. Add it anyway?`)) return
     onSave({ ...t, symbol: t.symbol.trim().toUpperCase() })
     if (!initial) setT(blank(settings))
   }
@@ -63,6 +82,7 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
   return (
     <form onSubmit={submit} className="space-y-4">
       <RiskBanner warnings={warnings} title={`Risk rules for ${t.date} — think before adding another trade`} />
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div><label className="label">Date</label><input type="date" className="input" value={t.date} onChange={(e) => set('date', e.target.value)} required /></div>
         <div><label className="label">Symbol</label><input data-autofocus={!initial && !prefill ? true : undefined} className="input uppercase" placeholder="RELIANCE" value={t.symbol} onChange={(e) => set('symbol', e.target.value)} required /></div>
@@ -73,53 +93,77 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
         <div><label className="label">Exit price</label><input data-autofocus={prefill ? true : undefined} {...num('exitPrice')} /></div>
         <div><label className="label">Stop-loss (optional)</label><input {...num('stopLoss')} /></div>
         <div><label className="label">Target (optional)</label><input {...num('target')} /></div>
-        <div><label className="label">Entry time (optional)</label><input type="time" className="input" value={t.entryTime ?? ''} onChange={(e) => set('entryTime', e.target.value || undefined)} /></div>
-        <div><label className="label">Exit time (optional)</label><input type="time" className="input" value={t.exitTime ?? ''} onChange={(e) => set('exitTime', e.target.value || undefined)} /></div>
-        <div><label className="label">Setup</label>
+        <div className="md:col-span-2"><label className="label">Setup</label>
           <select className="input" value={t.setup} onChange={(e) => set('setup', e.target.value)}>{settings.setups.map((s) => <option key={s}>{s}</option>)}</select></div>
-        <div><label className="label">Emotion</label>
-          <select className="input" value={t.emotion} onChange={(e) => set('emotion', e.target.value)}>{EMOTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
-        <div><label className="label">Confidence (optional)</label>
-          <div className="seg w-full" role="group" aria-label="Confidence from 1 to 5">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} type="button" className="flex-1" aria-pressed={t.confidence === n}
-                title={['Very unsure', 'Unsure', 'Neutral', 'Confident', 'Very confident'][n - 1]}
-                onClick={() => set('confidence', t.confidence === n ? undefined : n)}>{n}</button>
-            ))}
-          </div></div>
-        <div className="flex items-end pb-1.5"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={t.followedPlan} onChange={(e) => set('followedPlan', e.target.checked)} /> Followed my plan</label></div>
-      </div>
-      <div>
-        <span className="label">Mistakes</span>
-        <div className="flex flex-wrap gap-2">
-          {settings.mistakeTags.map((m) => {
-            const on = t.mistakes.includes(m)
-            return (
-              <button type="button" key={m}
-                onClick={() => set('mistakes', on ? t.mistakes.filter((x) => x !== m) : [...t.mistakes, m])}
-                className={`rounded-full border px-2.5 py-1 text-xs ${on ? 'border-down bg-down/10 text-down' : 'border-line'}`}>{m}</button>
-            )
-          })}
+        <div className="col-span-2 flex items-end pb-2">
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+            <input type="checkbox" className="h-4 w-4 accent-[var(--accent)]" checked={t.followedPlan} onChange={(e) => set('followedPlan', e.target.checked)} /> I followed my plan
+          </label>
         </div>
       </div>
-      <div><label className="label">Notes</label><textarea className="input" rows={2} value={t.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Why did you take it? What would you do differently?" /></div>
-      <div onPaste={(e) => { const f = [...e.clipboardData.files]; if (f.length) { e.preventDefault(); addImages(f) } }}>
-        <label className="label">Chart screenshots (choose files, or paste an image anywhere in this box)</label>
-        <input type="file" accept="image/*" multiple className="block text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-panel2 file:px-3 file:py-1.5 file:text-sm file:text-fg hover:file:bg-line" onChange={(e) => { addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
-        <input className="input mt-2" placeholder="Click here and press Ctrl/Cmd+V to paste a screenshot" readOnly />
-        {imgError && <p className="mt-1 text-xs text-down">{imgError}</p>}
-        {!!t.screenshots?.length && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {t.screenshots.map((src, i) => (
-              <div key={i} className="relative">
-                <img src={src} alt={`Screenshot ${i + 1}`} className="h-20 rounded border border-line" />
-                <button type="button" aria-label="Remove screenshot" className="absolute -right-1.5 -top-1.5 rounded-full bg-down px-1.5 text-xs text-white"
-                  onClick={() => set('screenshots', t.screenshots!.filter((_, j) => j !== i))}>×</button>
+
+      <div>
+        <button type="button" onClick={toggleMore} aria-expanded={showMore} aria-controls="trade-more"
+          className="flex w-full items-center justify-between gap-3 rounded-xl border border-dashed border-line px-3.5 py-2.5 text-left text-sm transition hover:border-accent/50 hover:bg-panel2/40">
+          <span className="flex items-center gap-2 font-medium">
+            <span className={`inline-block text-muted transition ${showMore ? 'rotate-90' : ''}`}>›</span>
+            More details
+            {filled > 0 && <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[11px] font-semibold text-accent">{filled} added</span>}
+          </span>
+          <span className="hidden text-xs text-muted sm:block">{showMore ? 'Times, emotion, confidence, mistakes, notes, screenshots' : 'Add times, mistakes, notes, screenshots…'}</span>
+        </button>
+
+        {showMore && (
+          <div id="trade-more" className="rise mt-4 space-y-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div><label className="label">Entry time</label><input type="time" className="input" value={t.entryTime ?? ''} onChange={(e) => set('entryTime', e.target.value || undefined)} /></div>
+              <div><label className="label">Exit time</label><input type="time" className="input" value={t.exitTime ?? ''} onChange={(e) => set('exitTime', e.target.value || undefined)} /></div>
+              <div><label className="label">Emotion</label>
+                <select className="input" value={t.emotion} onChange={(e) => set('emotion', e.target.value)}>{EMOTIONS.map((s) => <option key={s}>{s}</option>)}</select></div>
+              <div><label className="label">Confidence</label>
+                <div className="seg w-full" role="group" aria-label="Confidence from 1 to 5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" className="flex-1" aria-pressed={t.confidence === n}
+                      title={['Very unsure', 'Unsure', 'Neutral', 'Confident', 'Very confident'][n - 1]}
+                      onClick={() => set('confidence', t.confidence === n ? undefined : n)}>{n}</button>
+                  ))}
+                </div></div>
+            </div>
+            <div>
+              <span className="label">Mistakes</span>
+              <div className="flex flex-wrap gap-2">
+                {settings.mistakeTags.map((m) => {
+                  const on = t.mistakes.includes(m)
+                  return (
+                    <button type="button" key={m} aria-pressed={on}
+                      onClick={() => set('mistakes', on ? t.mistakes.filter((x) => x !== m) : [...t.mistakes, m])}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${on ? 'border-down bg-down/10 text-down' : 'border-line hover:border-accent/50'}`}>{m}</button>
+                  )
+                })}
               </div>
-            ))}
+            </div>
+            <div><label className="label">Notes</label><textarea className="input" rows={2} value={t.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Why did you take it? What would you do differently?" /></div>
+            <div onPaste={(e) => { const f = [...e.clipboardData.files]; if (f.length) { e.preventDefault(); addImages(f) } }}>
+              <label className="label">Chart screenshots (choose files, or paste an image anywhere in this box)</label>
+              <input type="file" accept="image/*" multiple className="block text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-panel2 file:px-3 file:py-1.5 file:text-sm file:text-fg hover:file:bg-line" onChange={(e) => { addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
+              <input className="input mt-2" placeholder="Click here and press Ctrl/Cmd+V to paste a screenshot" readOnly />
+              {imgError && <p className="mt-1 text-xs text-down">{imgError}</p>}
+              {!!t.screenshots?.length && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {t.screenshots.map((src, i) => (
+                    <div key={i} className="relative">
+                      <img src={src} alt={`Screenshot ${i + 1}`} className="h-20 rounded border border-line" />
+                      <button type="button" aria-label="Remove screenshot" className="absolute -right-1.5 -top-1.5 rounded-full bg-down px-1.5 text-xs text-white"
+                        onClick={() => set('screenshots', t.screenshots!.filter((_, j) => j !== i))}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
+
       {(check.errors.length > 0 || check.warnings.length > 0) && (
         <ul className="space-y-1 rounded-xl border border-line bg-panel2/40 px-3.5 py-2.5 text-sm" aria-live="polite">
           {check.errors.map((m) => <li key={m} className="text-down">✕ {m}</li>)}
@@ -135,7 +179,7 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
         </div>
         <div className="flex gap-2">
           {onCancel && <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>}
-          <button className="btn disabled:opacity-50" disabled={!canSave}>{initial ? 'Update trade' : 'Add trade'}</button>
+          <button className="btn disabled:opacity-50" disabled={!canSave}>{initial ? 'Update trade' : check.duplicate ? 'Add anyway' : 'Add trade'}</button>
         </div>
       </div>
     </form>

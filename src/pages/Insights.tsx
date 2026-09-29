@@ -14,6 +14,8 @@ import BarPnl from '../components/BarPnl'
 import PageTitle from '../components/PageTitle'
 import { Card, CountBars, Empty, Table, mins } from '../components/InsightBits'
 import Tabs from '../components/Tabs'
+import InfoTip from '../components/InfoTip'
+import { tips } from '../lib/glossary'
 import CoachCard from '../components/CoachCard'
 
 const N = ({ v }: { v: number }) => <span className={pnlColor(v)}>{inr(v)}</span>
@@ -262,7 +264,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             </div>
           ))}
         </div>
-        <Card title="Disciplined vs actual P&L" note="What you would have made if you had skipped every trade where you broke your plan or made an entry or behaviour mistake.">
+        <Card title="Disciplined vs actual P&L" info={<InfoTip {...tips.disciplined()} />} note="What you would have made if you had skipped every trade where you broke your plan or made an entry or behaviour mistake.">
           {disc.flawed.count === 0 ? <Empty>✅ {discV.text}</Empty> : (
             <>
               <div className="space-y-3.5">
@@ -285,7 +287,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             </>
           )}
         </Card>
-        <Card title="Cost of mistakes" note={mode === 'split'
+        <Card title="Cost of mistakes" info={<InfoTip {...tips.ifAvoided()} />} note={mode === 'split'
           ? 'A trade with several mistakes has its P&L divided evenly between them, so the rows add up to what you actually lost.'
           : "Each tag gets the whole trade's P&L. Trades with several mistakes appear in several rows, so the rows overlap and don't add up."}>
           {d.mistakes.table.length === 0 ? <Empty>No mistakes tagged yet.</Empty> : (
@@ -344,7 +346,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
         {tab === 'behaviour' && (
           <>
         <div className="grid gap-4 md:grid-cols-2">
-          <Card title="Tilt check" note="Same-day trades right after a loss vs after a win.">
+          <Card title="Tilt check" info={<InfoTip {...tips.tilt()} />} note="Same-day trades right after a loss vs after a win.">
             <Table head={['', 'Trades', 'Win rate', 'Avg P&L', 'Avg size']}
               rows={([['After a loss', t.afterLoss], ['After a win', t.afterWin]] as const).map(([l, x]) =>
                 [l, x.count, pct(x.winRate), <N v={x.avgNet} />, inr(x.avgSize)])} />
@@ -358,7 +360,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
           </Card>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <Card title="Position size consistency" note={sizeEnough ? `Size = entry price × quantity. Your median is ${inr(size.median)}.` : undefined}>
+          <Card title="Position size consistency" info={<InfoTip {...tips.sizeVariation(size.cv)} />} note={sizeEnough ? `Size = entry price × quantity. Your median is ${inr(size.median)}.` : undefined}>
             {!sizeEnough ? <Empty>{sizeMsg}</Empty> : (
               <>
                 <Table head={['', 'Trades', 'Win rate', 'Avg P&L']}
@@ -446,7 +448,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
 
         {tab === 'edge' && (
           <>
-        <Card title="Setup scorecard">
+        <Card title="Setup scorecard" info={<InfoTip {...tips.setupColumns()} />}>
           <Table head={['Setup', 'Trades', 'Win rate', 'Avg R', 'Expectancy', 'Profit factor', 'Net P&L']}
             rows={d.setups.map((s) => [s.name, s.count, pct(s.winRate), s.avgR !== null ? s.avgR.toFixed(2) : '–', <N v={s.expectancy} />, pf(s.profitFactor), <N v={s.net} />])} />
         </Card>
@@ -483,10 +485,10 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
         {tab === 'execution' && (
           <>
         <div className="grid gap-4 md:grid-cols-2">
-          <Card title="R-multiple distribution" note={d.rHist.missing ? `${d.rHist.missing} trades without a stop-loss are excluded.` : 'Net R per trade (after charges).'}>
+          <Card title="R-multiple distribution" info={<InfoTip {...tips.rMultiple()} />} note={d.rHist.missing ? `${d.rHist.missing} trades without a stop-loss are excluded.` : 'Net R per trade (after charges).'}>
             {d.rHist.total === 0 ? <Empty>Add stop-losses to your trades to see R.</Empty> : <CountBars data={d.rHist.data} />}
           </Card>
-          <Card title="Win/loss size" note="Do your winners pay for your losers?">
+          <Card title="Win/loss size" info={<InfoTip {...tips.payoff(p.ratio, p.breakevenWinRate)} />} note="Do your winners pay for your losers?">
             {p.ratio === null ? <Empty /> : (
               <div className="space-y-1 text-sm">
                 <p>Average win <b className="text-up">{inr(p.avgWin)}</b> · average loss <b className="text-down">{inr(p.avgLoss)}</b></p>

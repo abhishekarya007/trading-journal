@@ -140,3 +140,15 @@ describe('noteWords de-duplication', () => {
     expect(w.map((x) => x.phrase).sort()).toEqual(['chased', 'patient', 'reversal'])
   })
 })
+
+import { groupByDay } from './habits'
+describe('groupByDay', () => {
+  it('groups consecutive days, keeping order and totals', () => {
+    const rows = [row(day(3), 10), row(day(3), -4), row(day(2), 50), row(day(1), -5), row(day(1), 1)]
+    const g = groupByDay(rows)
+    expect(g.map((d) => d.date)).toEqual([day(3), day(2), day(1)]) // newest first, as given
+    expect(g[0]).toMatchObject({ count: 2, net: 6 })
+    expect(g[2]).toMatchObject({ count: 2, net: -4 })
+    expect(groupByDay([])).toEqual([])
+  })
+})

@@ -14,6 +14,7 @@ const RATE_LABELS: Record<keyof ChargeRates, string> = {
 }
 
 import PageTitle from '../components/PageTitle'
+import { toast } from '../lib/toast'
 import CapitalInput from '../components/CapitalInput'
 import { monthlyCapital } from '../lib/capital'
 import { localDate } from '../lib/week'
@@ -43,10 +44,16 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
     URL.revokeObjectURL(a.href)
   }
   const doImport = async (f: File) => {
-    if (!confirm('Importing replaces ALL current trades. Continue?')) return
     try {
+      const snapshot = await exportJson(settings) // taken first so the import can be undone
       const { settings: s, count } = await importJson(await f.text())
-      save(s); refresh(); setMsg(`Imported ${count} trades.`)
+      save(s); refresh(); setMsg(`Imported ${count} trades (this replaced your previous trades).`)
+      toast(`Imported ${count} trades`, 'success', {
+        action: {
+          label: 'Undo',
+          run: async () => { const back = await importJson(snapshot); save(back.settings); refresh(); setMsg('Import undone.'); toast('Previous data restored', 'info') },
+        },
+      })
     } catch (e) { setMsg(`Import failed: ${(e as Error).message}`) }
   }
 

@@ -11,10 +11,10 @@ export function Section({ title, children }: { title: string; children: ReactNod
   )
 }
 
-export function Card({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+export function Card({ title, note, info, children }: { title: string; note?: string; info?: ReactNode; children: ReactNode }) {
   return (
     <div className="card">
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold">{title}{info}</h3>
       {note && <p className="mb-3 mt-0.5 text-xs text-muted">{note}</p>}
       <div className={note ? '' : 'mt-2'}>{children}</div>
     </div>

@@ -26,13 +26,19 @@ export default function CoachCard({ rows, settings, weekKey, onFocusSaved }: Pro
     return () => { cancelled = true }
   }, [weekKey])
 
+  const writeFocus = async (value: string) => {
+    const latest = await db.reviews.get(weekKey)
+    await db.reviews.put({ wentWell: '', improve: '', ...latest, weekStart: weekKey, focus: value })
+    setFocus(value)
+    onFocusSaved?.(value)
+  }
   const makeFocus = async (text: string) => {
-    const cur = await db.reviews.get(weekKey)
-    if (cur?.focus.trim() && cur.focus.trim() !== text && !confirm(`Replace your current focus?\n\n“${cur.focus.trim()}”`)) return
-    await db.reviews.put({ wentWell: '', improve: '', ...cur, weekStart: weekKey, focus: text })
-    setFocus(text)
-    onFocusSaved?.(text)
-    toast('Set as your focus')
+    const previous = (await db.reviews.get(weekKey))?.focus ?? ''
+    await writeFocus(text)
+    const replaced = previous.trim() !== '' && previous.trim() !== text
+    toast(replaced ? 'Focus replaced' : 'Set as your focus', 'success', {
+      action: { label: 'Undo', run: async () => { await writeFocus(previous); toast('Focus restored', 'info') } },
+    })
   }
 
   return (

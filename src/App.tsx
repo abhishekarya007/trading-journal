@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { db, useSettings, useTrades } from './lib/db'
 import { calcTrade } from './lib/calc'
@@ -15,6 +15,7 @@ import SettingsPage from './pages/SettingsPage'
 import Ticker, { type Tick } from './components/Ticker'
 import CommandPalette, { type Command } from './components/CommandPalette'
 import Toaster from './components/Toaster'
+import { toast } from './lib/toast'
 import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
 import {
@@ -38,6 +39,7 @@ const isTyping = (el: EventTarget | null) => {
 
 export default function App() {
   const navigate = useNavigate()
+  const onTrades = useLocation().pathname === '/trades'
   const [settings, saveSettings] = useSettings()
   const { trades, loading, refresh } = useTrades()
   const [palette, setPalette] = useState(false)
@@ -112,9 +114,12 @@ export default function App() {
   // Trades saved before the app became intraday-only.
   const legacy = trades.filter((t) => (t as { type?: string }).type === 'Delivery')
   const removeLegacy = async () => {
-    if (!confirm(`Delete ${legacy.length} delivery trade(s)? This cannot be undone (export a backup first if unsure).`)) return
-    await db.trades.bulkDelete(legacy.map((t) => t.id!))
+    const removed = legacy
+    await db.trades.bulkDelete(removed.map((t) => t.id!))
     refresh()
+    toast(`${removed.length} delivery trade(s) deleted`, 'info', {
+      action: { label: 'Undo', run: async () => { await db.trades.bulkPut(removed); refresh(); toast('Trades restored') } },
+    })
   }
 
   const themeBtn = (
@@ -217,7 +222,7 @@ export default function App() {
 
       {/* Mobile: floating add + bottom nav */}
       <button onClick={addTrade} aria-label="Add trade"
-        className="btn fixed bottom-20 right-4 z-30 !h-14 !w-14 !rounded-2xl !p-0 md:hidden"><IconPlus /></button>
+        className={`btn fixed bottom-20 z-30 !h-14 !w-14 !rounded-2xl !p-0 md:hidden ${onTrades ? 'left-4' : 'right-4'}`}><IconPlus /></button>
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line/70 bg-panel/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl md:hidden">
         {links.map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} end={to === '/'}

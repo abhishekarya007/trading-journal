@@ -12,6 +12,8 @@ import { evaluateDay } from '../lib/risk'
 import { monthlyCapital } from '../lib/capital'
 import CoachCard from '../components/CoachCard'
 import Tabs from '../components/Tabs'
+import InfoTip from '../components/InfoTip'
+import { tips } from '../lib/glossary'
 import AnimatedNumber from '../components/AnimatedNumber'
 import Ring from '../components/Ring'
 import Sparkline from '../components/Sparkline'
@@ -177,7 +179,7 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
         </div>
 
         <div className="card flex flex-col">
-          <div className="label">Win rate</div>
+          <div className="label flex items-center gap-1.5">Win rate <InfoTip {...tips.winRate(s.winRate, wins, losses)} /></div>
           <div className="flex flex-1 items-center justify-center py-3">
             <Ring value={s.winRate} size={168}>
               <div className="num text-3xl font-semibold"><AnimatedNumber value={s.winRate} format={(n) => `${n.toFixed(1)}%`} /></div>
@@ -195,11 +197,11 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
       <div className="stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Net P&L" icon={<IconWallet />} value={<AnimatedNumber value={s.net} format={(n) => signed(n)} />} className={pnlColor(s.net)}
           sub={`${s.count} trades · ${inr(s.charges)} charges`} spark={cumNet} tone={s.net >= 0 ? 'up' : 'down'} />
-        <Stat label="Profit factor" icon={<IconScale />} value={Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'}
+        <Stat label="Profit factor" info={<InfoTip {...tips.profitFactor(s.profitFactor)} />} icon={<IconScale />} value={Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'}
           className={s.profitFactor >= 1 ? 'text-up' : 'text-down'} sub="Gross wins ÷ gross losses" />
-        <Stat label="Expectancy" icon={<IconBolt />} value={<AnimatedNumber value={s.expectancy} format={(n) => signed(n)} />} className={pnlColor(s.expectancy)}
+        <Stat label="Expectancy" info={<InfoTip {...tips.expectancy(s.expectancy)} />} icon={<IconBolt />} value={<AnimatedNumber value={s.expectancy} format={(n) => signed(n)} />} className={pnlColor(s.expectancy)}
           sub={s.avgR !== null ? `per trade · avg ${s.avgR.toFixed(2)}R` : 'per trade'} />
-        <Stat label="Max drawdown" icon={<IconDown />} value={inr(s.maxDrawdown)} className="text-down"
+        <Stat label="Max drawdown" info={<InfoTip {...tips.maxDrawdown(s.maxDrawdown)} />} icon={<IconDown />} value={inr(s.maxDrawdown)} className="text-down"
           sub="Largest peak-to-trough fall" spark={curve.map((p) => p.dd)} tone="down" />
       </div>
 

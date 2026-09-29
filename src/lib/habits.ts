@@ -236,3 +236,17 @@ export function snippet(text: string, query: string, before = 32, after = 56) {
   const end = Math.min(text.length, i + q.length + after)
   return { pre: (start > 0 ? '…' : '') + text.slice(start, i), hit: text.slice(i, i + q.length), post: text.slice(i + q.length, end) + (end < text.length ? '…' : '') }
 }
+
+/** Groups rows that are already sorted (e.g. newest first) into consecutive days, keeping their order. */
+export function groupByDay(rows: Row[]): Day[] {
+  const out: Day[] = []
+  const byDate = new Map<string, Day>()
+  for (const r of rows) {
+    let d = byDate.get(r.trade.date)
+    if (!d) { d = { date: r.trade.date, net: 0, count: 0, rows: [] }; byDate.set(r.trade.date, d); out.push(d) }
+    d.rows.push(r)
+    d.net += r.res.net
+    d.count += 1
+  }
+  return out
+}
