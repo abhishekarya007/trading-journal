@@ -15,6 +15,7 @@ import SettingsPage from './pages/SettingsPage'
 import Ticker, { type Tick } from './components/Ticker'
 import CommandPalette, { type Command } from './components/CommandPalette'
 import Toaster from './components/Toaster'
+import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
 import {
   IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
@@ -103,6 +104,7 @@ export default function App() {
       { id: 'add', group: 'Actions', label: 'Add a new trade', hint: 'N', icon: <IconPlus />, run: addTrade },
       { id: 'theme', group: 'Actions', label: `Switch to ${dark ? 'light' : 'dark'} theme`, icon: dark ? <IconSun /> : <IconMoon />, run: () => setDark((d) => !d) },
       ...links.map((l) => ({ id: `nav${l.to}`, group: 'Go to', label: l.label, icon: <l.Icon />, run: go(l.to) })),
+      ...INSIGHT_TABS.filter((t) => t.id !== 'overview').map((t) => ({ id: `ins${t.id}`, group: 'Go to', label: `Insights › ${t.label}`, icon: <IconInsights />, run: () => navigate(`/insights?tab=${t.id}`) })),
       ...symbols.map((s) => ({ id: `sym${s}`, group: 'Symbols', label: `${s} trades`, icon: <span className="text-[10px] font-bold">{s.slice(0, 2)}</span>, run: go('/trades', { q: s }) })),
     ]
   }, [trades, dark, addTrade, navigate])

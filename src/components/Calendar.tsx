@@ -4,7 +4,7 @@ import type { MonthCap } from '../lib/capital'
 import { localDate } from '../lib/week'
 import { inr } from '../lib/format'
 
-export default function Calendar({ rows, caps }: { rows: Row[]; caps?: Map<string, MonthCap> }) {
+export default function Calendar({ rows, caps, bare }: { rows: Row[]; caps?: Map<string, MonthCap>; bare?: boolean }) {
 
   const today = localDate()
   const [month, setMonth] = useState(() => today.slice(0, 7))
@@ -36,7 +36,7 @@ export default function Calendar({ rows, caps }: { rows: Row[]; caps?: Map<strin
   }
 
   return (
-    <div className="card">
+    <div className={bare ? '' : 'card'}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">P&amp;L calendar</h3>

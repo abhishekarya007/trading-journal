@@ -3,10 +3,10 @@ import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer,
 import { inr } from '../lib/format'
 import { axisTick, COLORS, tooltipStyle } from '../lib/theme'
 
-export default function BarPnl({ title, data }: { title: string; data: { name: string; net: number; count: number }[] }) {
+export default function BarPnl({ title, data, bare }: { title: string; data: { name: string; net: number; count: number }[]; bare?: boolean }) {
   const id = useId().replace(/:/g, '')
   return (
-    <div className="card">
+    <div className={bare ? '' : 'card'}>
       <h3 className="mb-3 text-sm font-semibold">{title}</h3>
       {data.length === 0 ? <p className="py-8 text-center text-sm text-muted">No data</p> : (
         <ResponsiveContainer width="100%" height={210}>

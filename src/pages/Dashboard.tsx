@@ -11,6 +11,7 @@ import { nseStatus } from '../lib/market'
 import { evaluateDay } from '../lib/risk'
 import { monthlyCapital } from '../lib/capital'
 import CoachCard from '../components/CoachCard'
+import Tabs from '../components/Tabs'
 import AnimatedNumber from '../components/AnimatedNumber'
 import Ring from '../components/Ring'
 import Sparkline from '../components/Sparkline'
@@ -23,6 +24,12 @@ import { IconBolt, IconDown, IconPlus, IconScale, IconWallet } from '../componen
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+type PerfTab = 'equity' | 'calendar' | 'breakdown'
+const PERF_TABS: { id: PerfTab; label: string }[] = [
+  { id: 'equity', label: 'Cumulative P&L' },
+  { id: 'calendar', label: 'Calendar' },
+  { id: 'breakdown', label: 'Weekday & setup' },
+]
 const RANGES = [['1M', 30], ['3M', 90], ['6M', 180], ['All', 0]] as const
 
 const signed = (n: number, d = 0) => (n > 0 ? '+' : '') + inr(n, d)
@@ -61,6 +68,13 @@ function form(rows: Row[]) {
 export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; settings: Settings; onAdd: () => void }) {
   const navigate = useNavigate()
   const [range, setRange] = useState<(typeof RANGES)[number][0]>('All')
+  const [perf, setPerf] = useState<PerfTab>(() => {
+    try { const v = localStorage.getItem('tj-perf-tab'); return PERF_TABS.some((t) => t.id === v) ? (v as PerfTab) : 'equity' } catch { return 'equity' }
+  })
+  const setPerfTab = (t: PerfTab) => {
+    setPerf(t)
+    try { localStorage.setItem('tj-perf-tab', t) } catch { /* ignore */ }
+  }
   const todayKey = localDate()
 
   const s = useMemo(() => summarize(rows), [rows])
@@ -189,11 +203,14 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
           sub="Largest peak-to-trough fall" spark={curve.map((p) => p.dd)} tone="down" />
       </div>
 
-      <CoachCard rows={rows} settings={settings} weekKey={weekStart(todayKey)} />
-
-      {/* Equity + form */}
+      {/* Performance (tabbed) + what needs attention */}
       <div className="grid gap-5 lg:grid-cols-3">
-        <div className="card lg:col-span-2">
+        <div className="card min-h-[500px] lg:col-span-2">
+          <div className="mb-4">
+            <Tabs tabs={PERF_TABS} value={perf} onChange={setPerfTab} label="Performance views" size="sm" />
+          </div>
+          {perf === 'equity' && (
+            <div className="rise">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold">Cumulative P&amp;L</h3>
@@ -241,33 +258,17 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
               </ResponsiveContainer>
             </>
           )}
-        </div>
 
-        <div className="card flex flex-col">
-          <div className="label">Current streak</div>
-          <div className="flex items-baseline gap-2">
-            <span className={`num text-5xl font-semibold ${f.cur > 0 ? 'text-up glow-up' : f.cur < 0 ? 'text-down glow-down' : ''}`}>{Math.abs(f.cur)}</span>
-            <span className="text-sm text-muted">{f.cur > 0 ? `win${f.cur > 1 ? 's' : ''} in a row 🔥` : f.cur < 0 ? `loss${f.cur < -1 ? 'es' : ''} in a row` : 'no streak'}</span>
-          </div>
-          <div className="label mt-5">Last {f.last.length} trades</div>
-          <div className="flex h-16 items-end gap-[3px]">
-            {f.last.map((n, i) => (
-              <div key={i} title={inr(n, 2)} className={`flex-1 rounded-t-[3px] ${n > 0 ? 'bg-up' : 'bg-down'}`}
-                style={{ height: `${18 + 82 * (Math.abs(n) / lastMax)}%`, opacity: 0.45 + 0.55 * ((i + 1) / f.last.length) }} />
-            ))}
-          </div>
-          <div className="mt-auto grid grid-cols-2 gap-2.5 pt-5">
-            <Mini label="Best streak" value={`${f.bestW} W`} className="text-up" />
-            <Mini label="Worst streak" value={`${f.worstL} L`} className="text-down" />
-            <Mini label="Best day" value={f.bestDay ? signed(f.bestDay[1]) : '–'} className="text-up" />
-            <Mini label="Worst day" value={f.worstDay ? signed(f.worstDay[1]) : '–'} className={f.worstDay && f.worstDay[1] < 0 ? 'text-down' : ''} />
-          </div>
+            </div>
+          )}
+          {perf === 'calendar' && <div className="rise"><Calendar rows={rows} caps={caps} bare /></div>}
+          {perf === 'breakdown' && (
+            <div className="rise grid gap-6 md:grid-cols-2">
+              <BarPnl bare title="P&L by weekday" data={byDay} />
+              <BarPnl bare title="P&L by setup" data={bySetup} />
+            </div>
+          )}
         </div>
-      </div>
-
-      {/* Calendar + recent */}
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2"><Calendar rows={rows} caps={caps} /></div>
         <div className="card flex flex-col">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Recent trades</h3>
@@ -295,9 +296,30 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
         </div>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <BarPnl title="P&L by weekday" data={byDay} />
-        <BarPnl title="P&L by setup" data={bySetup} />
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2 [&>.card]:h-full">
+          <CoachCard rows={rows} settings={settings} weekKey={weekStart(todayKey)} />
+        </div>
+        <div className="card flex flex-col">
+          <div className="label">Current streak</div>
+          <div className="flex items-baseline gap-2">
+            <span className={`num text-5xl font-semibold ${f.cur > 0 ? 'text-up glow-up' : f.cur < 0 ? 'text-down glow-down' : ''}`}>{Math.abs(f.cur)}</span>
+            <span className="text-sm text-muted">{f.cur > 0 ? `win${f.cur > 1 ? 's' : ''} in a row 🔥` : f.cur < 0 ? `loss${f.cur < -1 ? 'es' : ''} in a row` : 'no streak'}</span>
+          </div>
+          <div className="label mt-5">Last {f.last.length} trades</div>
+          <div className="flex h-16 items-end gap-[3px]">
+            {f.last.map((n, i) => (
+              <div key={i} title={inr(n, 2)} className={`flex-1 rounded-t-[3px] ${n > 0 ? 'bg-up' : 'bg-down'}`}
+                style={{ height: `${18 + 82 * (Math.abs(n) / lastMax)}%`, opacity: 0.45 + 0.55 * ((i + 1) / f.last.length) }} />
+            ))}
+          </div>
+          <div className="mt-auto grid grid-cols-2 gap-2.5 pt-5">
+            <Mini label="Best streak" value={`${f.bestW} W`} className="text-up" />
+            <Mini label="Worst streak" value={`${f.worstL} L`} className="text-down" />
+            <Mini label="Best day" value={f.bestDay ? signed(f.bestDay[1]) : '–'} className="text-up" />
+            <Mini label="Worst day" value={f.worstDay ? signed(f.worstDay[1]) : '–'} className={f.worstDay && f.worstDay[1] < 0 ? 'text-down' : ''} />
+          </div>
+        </div>
       </div>
     </div>
   )

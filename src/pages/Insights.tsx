@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { groupNet, summarize, type Row } from '../lib/stats'
 import type { Settings } from '../lib/types'
 import { monthlyCapital } from '../lib/capital'
@@ -8,11 +8,13 @@ import {
   adherence, discipline, disciplineVerdict, holding, mistakeCost, overtrading, payoff, reentry, rHistogram, scorecard, sizing, symbolBoard, tilt, timeOfDay,
 } from '../lib/insights'
 import { inr, pct, pnlColor } from '../lib/format'
-import { localDate } from '../lib/week'
+import { localDate, weekStart } from '../lib/week'
 import { afterBadDay, bestWorstDays, confidence, hhmm, noteWords, searchNotes, snippet } from '../lib/habits'
 import BarPnl from '../components/BarPnl'
 import PageTitle from '../components/PageTitle'
-import { Card, CountBars, Empty, Section, Table, mins } from '../components/InsightBits'
+import { Card, CountBars, Empty, Table, mins } from '../components/InsightBits'
+import Tabs from '../components/Tabs'
+import CoachCard from '../components/CoachCard'
 
 const N = ({ v }: { v: number }) => <span className={pnlColor(v)}>{inr(v)}</span>
 function CompareBar({ label, value, max, sub }: { label: string; value: number; max: number; sub?: string }) {
@@ -28,6 +30,19 @@ function CompareBar({ label, value, max, sub }: { label: string; value: number; 
     </div>
   )
 }
+type TabId = 'overview' | 'discipline' | 'behaviour' | 'edge' | 'execution' | 'notes'
+export const INSIGHT_TABS: { id: TabId; label: string; intro: string }[] = [
+  { id: 'overview', label: 'Overview', intro: 'The short version: how your habits look and what to fix first.' },
+  { id: 'discipline', label: 'Discipline', intro: 'Do you follow your own rules, and what does it cost when you don’t?' },
+  { id: 'behaviour', label: 'Behaviour', intro: 'How you act after losses, on bad days and with position size.' },
+  { id: 'edge', label: 'Edge', intro: 'Which setups, stocks and times of day actually make you money.' },
+  { id: 'execution', label: 'Execution', intro: 'How well you manage risk: stop-losses, targets, and reward against risk.' },
+  { id: 'notes', label: 'Notes', intro: 'Search what you wrote and see which thoughts show up in winning or losing trades.' },
+]
+const TABS = INSIGHT_TABS.map(({ id, label }) => ({ id, label }))
+const TAB_INTRO = Object.fromEntries(INSIGHT_TABS.map((t) => [t.id, t.intro])) as Record<TabId, string>
+const STATUS_DOT = { good: 'bg-up', warn: 'bg-warn', bad: 'bg-down', none: 'bg-muted/50' } as const
+type Status = keyof typeof STATUS_DOT
 const x = (v: number) => `${v.toFixed(2)}×`
 const pf = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : '∞')
 
@@ -46,6 +61,9 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
   const [scope, setScope] = useState<'all' | 'month'>('all')
   const [noteQ, setNoteQ] = useState('')
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const tab: TabId = INSIGHT_TABS.some((t) => t.id === params.get('tab')) ? (params.get('tab') as TabId) : 'overview'
+  const setTab = (t: TabId) => setParams(t === 'overview' ? {} : { tab: t }, { replace: true })
   const currentMonth = localDate().slice(0, 7)
   const [month, setMonth] = useState(currentMonth)
 
@@ -129,8 +147,32 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
           : 'No sign of tilt: you perform as well after a loss as after a win.'
       : 'Need at least 3 same-day trades after both a win and a loss for a verdict.'
 
+  // Habit report card: one glanceable tile per area, each opening the tab with the detail.
+  const followedPct = rows.length ? (d.followed.count / rows.length) * 100 : 0
+  const mistakeRate = rows.length ? (d.mistakes.tagged.count / rows.length) * 100 : 0
+  const sizeFlag = chase(size.afterTwoLosses) || chase(size.afterLoss) || chase(size.afterWin)
+  const stopsKnown = a.losersWithSl >= 3
+  const tiles: { tab: TabId; label: string; value: string; sub: string; status: Status }[] = [
+    { tab: 'discipline', label: 'Plan discipline', value: pct(followedPct), sub: `${disc.brokePlan} of ${rows.length} trades broke the plan`,
+      status: followedPct >= 90 ? 'good' : followedPct >= 75 ? 'warn' : 'bad' },
+    { tab: 'discipline', label: 'Mistakes', value: `${d.mistakes.tagged.count} ${d.mistakes.tagged.count === 1 ? 'trade' : 'trades'}`,
+      sub: d.mistakes.tagged.count ? `net ${sgn(d.mistakes.tagged.net)} on tagged trades` : 'No entry or behaviour mistakes tagged',
+      status: mistakeRate <= 10 ? 'good' : mistakeRate <= 25 ? 'warn' : 'bad' },
+    { tab: 'execution', label: 'Stop-loss discipline', value: stopsKnown ? `${a.heldPast} held past` : '–',
+      sub: stopsKnown ? `of ${a.losersWithSl} losing trades that had a stop` : 'Needs 3+ losing trades with a stop-loss',
+      status: !stopsKnown ? 'none' : a.heldPast === 0 ? 'good' : a.heldPast / a.losersWithSl <= 0.2 ? 'warn' : 'bad' },
+    { tab: 'behaviour', label: 'Patience after losses', value: gap.measured ? `${gap.quick.count} quick re-entries` : '–',
+      sub: !gap.measured ? 'Add entry and exit times to trades' : gap.quick.count ? `net ${sgn(gap.quick.net)} within 5 min of a loss` : 'Never re-entered within 5 min of a loss',
+      status: !gap.measured ? 'none' : gap.quick.count === 0 ? 'good' : quickBad ? 'bad' : 'warn' },
+    { tab: 'behaviour', label: 'Position sizing', value: sizeEnough ? `${(size.cv * 100).toFixed(0)}% variation` : '–',
+      sub: !sizeEnough ? 'Needs at least 5 trades' : sizeFlag ? 'You size up after wins or losses' : 'Sizes stay steady',
+      status: !sizeEnough ? 'none' : sizeFlag ? 'bad' : size.cv < 0.3 ? 'good' : size.cv < 0.6 ? 'warn' : 'bad' },
+    { tab: 'edge', label: 'Profitability', value: `${pf(period.profitFactor)} profit factor`, sub: `expectancy ${sgn(period.expectancy)} per trade`,
+      status: period.profitFactor >= 1.5 ? 'good' : period.profitFactor >= 1 ? 'warn' : 'bad' },
+  ]
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <PageTitle title="Insights" sub={scope === 'all' ? 'What your trades say about your habits and edge · all time' : `What went on in ${monthLabel(month)}`}>
         <div className="flex flex-wrap items-center gap-2">
           <div className="seg" role="group" aria-label="Period">
@@ -180,9 +222,37 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
         )}
       </div>
 
-      {rows.length === 0 && <div className="card py-12 text-center text-muted">No trades in {monthLabel(month)}. Pick another month or switch to All time.</div>}
-      {rows.length > 0 && <>
-      <Section title="Behaviour">
+
+      <div className="z-20 -mx-4 bg-bg/75 px-4 py-2 backdrop-blur-xl md:sticky md:top-0 md:-mx-8 md:px-8">
+        <Tabs tabs={TABS} value={tab} onChange={setTab} label="Insights sections" />
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="card py-12 text-center text-muted">No trades in {monthLabel(month)}. Pick another month or switch to All time.</div>
+      ) : (
+      <div key={tab} className="page space-y-5">
+        <p className="text-sm text-muted">{TAB_INTRO[tab]}</p>
+
+        {tab === 'overview' && (
+          <>
+            <div className="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {tiles.map((tl) => (
+                <button key={tl.label} type="button" onClick={() => setTab(tl.tab)} className="card card-hover text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-muted"><span className={`h-2 w-2 rounded-full ${STATUS_DOT[tl.status]}`} />{tl.label}</span>
+                    <span className="text-muted">›</span>
+                  </div>
+                  <div className="num mt-2 text-2xl font-semibold tracking-tight">{tl.value}</div>
+                  <div className="mt-1 text-xs text-muted">{tl.sub}</div>
+                </button>
+              ))}
+            </div>
+            <CoachCard rows={allRows} settings={settings} weekKey={weekStart(localDate())} />
+          </>
+        )}
+
+        {tab === 'discipline' && (
+          <>
         <div className="grid gap-3 md:grid-cols-2">
           {([['Followed plan', d.followed], ['Broke plan', d.broke]] as const).map(([label, x]) => (
             <div className="card" key={label}>
@@ -192,7 +262,6 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             </div>
           ))}
         </div>
-
         <Card title="Disciplined vs actual P&L" note="What you would have made if you had skipped every trade where you broke your plan or made an entry or behaviour mistake.">
           {disc.flawed.count === 0 ? <Empty>✅ {discV.text}</Empty> : (
             <>
@@ -216,7 +285,6 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             </>
           )}
         </Card>
-
         <Card title="Cost of mistakes" note={mode === 'split'
           ? 'A trade with several mistakes has its P&L divided evenly between them, so the rows add up to what you actually lost.'
           : "Each tag gets the whole trade's P&L. Trades with several mistakes appear in several rows, so the rows overlap and don't add up."}>
@@ -260,7 +328,21 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             <p className="mt-2 text-xs text-muted">Trades with no entry/behaviour mistakes: {d.mistakes.clean.count}, net <N v={d.mistakes.clean.net} />, avg <N v={d.mistakes.clean.avgNet} /> per trade.</p>
           )}
         </Card>
+          <Card title="Confidence vs results" note="Do the trades you feel surest about actually do better?">
+            {conf.rated === 0 ? <Empty>{conf.verdict}</Empty> : (
+              <>
+                <Table head={['Rating', 'Trades', 'Win rate', 'Avg P&L']}
+                  rows={conf.levels.filter((l) => l.count > 0).map((l) => [`${l.level} ${'★'.repeat(l.level)}`, l.count, pct(l.winRate), <N key={l.level} v={l.avgNet} />])} />
+                <p className="mt-3 text-sm">{conf.verdict}</p>
+                {conf.unrated > 0 && <p className="mt-1 text-xs text-muted">{conf.unrated} trades have no rating and are excluded.</p>}
+              </>
+            )}
+          </Card>
+          </>
+        )}
 
+        {tab === 'behaviour' && (
+          <>
         <div className="grid gap-4 md:grid-cols-2">
           <Card title="Tilt check" note="Same-day trades right after a loss vs after a win.">
             <Table head={['', 'Trades', 'Win rate', 'Avg P&L', 'Avg size']}
@@ -344,8 +426,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             </>
           )}
         </Card>
-
-        <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
           <Card title="The day after a losing day" note="Your next trading day, depending on how the previous one ended.">
             {after.afterLoss.days + after.afterWin.days === 0 ? <Empty>Need trades on at least two different days.</Empty> : (
               <>
@@ -358,19 +439,90 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
               </>
             )}
           </Card>
+        <BarPnl title="Net P&L by emotion" data={d.emotion} />
+            </div>
+          </>
+        )}
 
-          <Card title="Confidence vs results" note="Do the trades you feel surest about actually do better?">
-            {conf.rated === 0 ? <Empty>{conf.verdict}</Empty> : (
-              <>
-                <Table head={['Rating', 'Trades', 'Win rate', 'Avg P&L']}
-                  rows={conf.levels.filter((l) => l.count > 0).map((l) => [`${l.level} ${'★'.repeat(l.level)}`, l.count, pct(l.winRate), <N key={l.level} v={l.avgNet} />])} />
-                <p className="mt-3 text-sm">{conf.verdict}</p>
-                {conf.unrated > 0 && <p className="mt-1 text-xs text-muted">{conf.unrated} trades have no rating and are excluded.</p>}
-              </>
+        {tab === 'edge' && (
+          <>
+        <Card title="Setup scorecard">
+          <Table head={['Setup', 'Trades', 'Win rate', 'Avg R', 'Expectancy', 'Profit factor', 'Net P&L']}
+            rows={d.setups.map((s) => [s.name, s.count, pct(s.winRate), s.avgR !== null ? s.avgR.toFixed(2) : '–', <N v={s.expectancy} />, pf(s.profitFactor), <N v={s.net} />])} />
+        </Card>
+        <Card title="Long vs Short">
+          <Table head={['Side', 'Trades', 'Win rate', 'Expectancy', 'Net']}
+            rows={d.side.map((s) => [s.name, s.count, pct(s.winRate), <N v={s.expectancy} />, <N v={s.net} />])} />
+        </Card>
+        <Card title="Symbol leaderboard" note="Best five and worst five stocks by net P&L.">
+          <div className="grid gap-4 md:grid-cols-2">
+            {([['Best', d.symbols.slice(0, 5).filter((s) => s.net > 0)], ['Worst', [...d.symbols].reverse().slice(0, 5).filter((s) => s.net < 0)]] as const).map(([label, list]) => (
+              <div key={label}>
+                <div className="mb-1 text-xs font-medium text-muted">{label}</div>
+                {list.length === 0 ? <Empty>None</Empty> : (
+                  <Table head={['Symbol', 'Trades', 'Win rate', 'Net']} rows={list.map((s) => [s.symbol, s.count, pct(s.winRate), <N v={s.net} />])} />
+                )}
+              </div>
+            ))}
+          </div>
+        </Card>
+        <div className="grid gap-4 md:grid-cols-2">
+          {d.tod.data.length ? <BarPnl title="Net P&L by entry hour" data={d.tod.data} /> : <Card title="Net P&L by entry hour"><Empty>Add entry times to your trades to see this.</Empty></Card>}
+          {d.hold.buckets.length ? <BarPnl title="Net P&L by holding time" data={d.hold.buckets} /> : <Card title="Net P&L by holding time"><Empty>Add entry and exit times to intraday trades to see this.</Empty></Card>}
+        </div>
+        {d.tod.data.length > 0 && d.tod.missing > 0 && <p className="text-xs text-muted">{d.tod.missing} trades have no entry time and are excluded from the hour chart.</p>}
+        {d.hold.count > 0 && (
+          <p className="text-sm">
+            Average hold: winners <b>{mins(d.hold.avgWinMin)}</b>, losers <b>{mins(d.hold.avgLossMin)}</b>
+            {d.hold.avgLossMin > d.hold.avgWinMin * 1.2 ? ' — you hold losers longer than winners.' : d.hold.avgWinMin > d.hold.avgLossMin * 1.2 ? ' — you let winners run longer than losers. 👍' : '.'}
+          </p>
+        )}
+          </>
+        )}
+
+        {tab === 'execution' && (
+          <>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card title="R-multiple distribution" note={d.rHist.missing ? `${d.rHist.missing} trades without a stop-loss are excluded.` : 'Net R per trade (after charges).'}>
+            {d.rHist.total === 0 ? <Empty>Add stop-losses to your trades to see R.</Empty> : <CountBars data={d.rHist.data} />}
+          </Card>
+          <Card title="Win/loss size" note="Do your winners pay for your losers?">
+            {p.ratio === null ? <Empty /> : (
+              <div className="space-y-1 text-sm">
+                <p>Average win <b className="text-up">{inr(p.avgWin)}</b> · average loss <b className="text-down">{inr(p.avgLoss)}</b></p>
+                <p>Payoff ratio: <b>{p.ratio.toFixed(2)}</b></p>
+                <p>Break-even win rate at this payoff: <b>{pct(p.breakevenWinRate!)}</b></p>
+                <p>Your actual win rate: <b>{pct(p.winRate)}</b> — {p.winRate >= p.breakevenWinRate! ? <span className="text-up">above break-even ✅</span> : <span className="text-down">below break-even ⚠</span>}</p>
+              </div>
             )}
           </Card>
         </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card title="Stop-loss discipline" note="Losing trades that had a stop-loss set (price move, before charges).">
+            {a.losersWithSl === 0 ? <Empty>No losing trades with a stop-loss yet.</Empty> : (
+              <div className="space-y-1 text-sm">
+                <p>Exited at the stop as planned: <b>{a.asPlanned}</b> of {a.losersWithSl}</p>
+                <p>Cut before the stop: <b>{a.cutEarly}</b></p>
+                <p className={a.heldPast ? 'text-down' : ''}>Held past the stop: <b>{a.heldPast}</b>{a.heldPast > 0 && <> (avg {a.avgOvershootR.toFixed(1)}R beyond the stop)</>}</p>
+              </div>
+            )}
+          </Card>
+          <Card title="Target discipline" note="Trades where you set a target.">
+            {a.targetTrades === 0 ? <Empty>No trades with a target yet.</Empty> : (
+              <div className="space-y-1 text-sm">
+                <p>Planned average risk:reward: <b>1 : {a.avgPlannedRR.toFixed(1)}</b></p>
+                <p>Reached target: <b>{a.hit}</b> of {a.targetTrades}</p>
+                <p>Exited in profit before target: <b>{a.exitedEarly}</b>{a.exitedEarly > 0 && a.avgLeftR > 0 && <> (left avg {a.avgLeftR.toFixed(1)}R on the table)</>}</p>
+                {a.leftAmount > 0 && <p>Left on the table: up to <b className="num text-warn">{inr(a.leftAmount)}</b> <span className="text-xs text-muted">if each had reached its target</span></p>}
+                <p>Never got there (ended in loss): <b>{a.lossWithTarget}</b></p>
+              </div>
+            )}
+          </Card>
+        </div>
+          </>
+        )}
 
+        {tab === 'notes' && (
         <Card title="Notes" note="Search what you wrote, or tap a recurring word or phrase to see what those trades cost you.">
           {notesCount === 0 ? <Empty>Write notes on your trades to search and analyse them here.</Empty> : (
             <>
@@ -416,88 +568,9 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
             </>
           )}
         </Card>
-
-        <BarPnl title="Net P&L by emotion" data={d.emotion} />
-      </Section>
-
-      <Section title="Where your edge is">
-        <Card title="Setup scorecard">
-          <Table head={['Setup', 'Trades', 'Win rate', 'Avg R', 'Expectancy', 'Profit factor', 'Net P&L']}
-            rows={d.setups.map((s) => [s.name, s.count, pct(s.winRate), s.avgR !== null ? s.avgR.toFixed(2) : '–', <N v={s.expectancy} />, pf(s.profitFactor), <N v={s.net} />])} />
-        </Card>
-
-        <Card title="Long vs Short">
-          <Table head={['Side', 'Trades', 'Win rate', 'Expectancy', 'Net']}
-            rows={d.side.map((s) => [s.name, s.count, pct(s.winRate), <N v={s.expectancy} />, <N v={s.net} />])} />
-        </Card>
-
-        <Card title="Symbol leaderboard" note="Best five and worst five stocks by net P&L.">
-          <div className="grid gap-4 md:grid-cols-2">
-            {([['Best', d.symbols.slice(0, 5).filter((s) => s.net > 0)], ['Worst', [...d.symbols].reverse().slice(0, 5).filter((s) => s.net < 0)]] as const).map(([label, list]) => (
-              <div key={label}>
-                <div className="mb-1 text-xs font-medium text-muted">{label}</div>
-                {list.length === 0 ? <Empty>None</Empty> : (
-                  <Table head={['Symbol', 'Trades', 'Win rate', 'Net']} rows={list.map((s) => [s.symbol, s.count, pct(s.winRate), <N v={s.net} />])} />
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {d.tod.data.length ? <BarPnl title="Net P&L by entry hour" data={d.tod.data} /> : <Card title="Net P&L by entry hour"><Empty>Add entry times to your trades to see this.</Empty></Card>}
-          {d.hold.buckets.length ? <BarPnl title="Net P&L by holding time" data={d.hold.buckets} /> : <Card title="Net P&L by holding time"><Empty>Add entry and exit times to intraday trades to see this.</Empty></Card>}
-        </div>
-        {d.tod.data.length > 0 && d.tod.missing > 0 && <p className="text-xs text-muted">{d.tod.missing} trades have no entry time and are excluded from the hour chart.</p>}
-        {d.hold.count > 0 && (
-          <p className="text-sm">
-            Average hold: winners <b>{mins(d.hold.avgWinMin)}</b>, losers <b>{mins(d.hold.avgLossMin)}</b>
-            {d.hold.avgLossMin > d.hold.avgWinMin * 1.2 ? ' — you hold losers longer than winners.' : d.hold.avgWinMin > d.hold.avgLossMin * 1.2 ? ' — you let winners run longer than losers. 👍' : '.'}
-          </p>
         )}
-      </Section>
-
-      <Section title="Risk & execution">
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card title="R-multiple distribution" note={d.rHist.missing ? `${d.rHist.missing} trades without a stop-loss are excluded.` : 'Net R per trade (after charges).'}>
-            {d.rHist.total === 0 ? <Empty>Add stop-losses to your trades to see R.</Empty> : <CountBars data={d.rHist.data} />}
-          </Card>
-          <Card title="Win/loss size" note="Do your winners pay for your losers?">
-            {p.ratio === null ? <Empty /> : (
-              <div className="space-y-1 text-sm">
-                <p>Average win <b className="text-up">{inr(p.avgWin)}</b> · average loss <b className="text-down">{inr(p.avgLoss)}</b></p>
-                <p>Payoff ratio: <b>{p.ratio.toFixed(2)}</b></p>
-                <p>Break-even win rate at this payoff: <b>{pct(p.breakevenWinRate!)}</b></p>
-                <p>Your actual win rate: <b>{pct(p.winRate)}</b> — {p.winRate >= p.breakevenWinRate! ? <span className="text-up">above break-even ✅</span> : <span className="text-down">below break-even ⚠</span>}</p>
-              </div>
-            )}
-          </Card>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card title="Stop-loss discipline" note="Losing trades that had a stop-loss set (price move, before charges).">
-            {a.losersWithSl === 0 ? <Empty>No losing trades with a stop-loss yet.</Empty> : (
-              <div className="space-y-1 text-sm">
-                <p>Exited at the stop as planned: <b>{a.asPlanned}</b> of {a.losersWithSl}</p>
-                <p>Cut before the stop: <b>{a.cutEarly}</b></p>
-                <p className={a.heldPast ? 'text-down' : ''}>Held past the stop: <b>{a.heldPast}</b>{a.heldPast > 0 && <> (avg {a.avgOvershootR.toFixed(1)}R beyond the stop)</>}</p>
-              </div>
-            )}
-          </Card>
-          <Card title="Target discipline" note="Trades where you set a target.">
-            {a.targetTrades === 0 ? <Empty>No trades with a target yet.</Empty> : (
-              <div className="space-y-1 text-sm">
-                <p>Planned average risk:reward: <b>1 : {a.avgPlannedRR.toFixed(1)}</b></p>
-                <p>Reached target: <b>{a.hit}</b> of {a.targetTrades}</p>
-                <p>Exited in profit before target: <b>{a.exitedEarly}</b>{a.exitedEarly > 0 && a.avgLeftR > 0 && <> (left avg {a.avgLeftR.toFixed(1)}R on the table)</>}</p>
-                {a.leftAmount > 0 && <p>Left on the table: up to <b className="num text-warn">{inr(a.leftAmount)}</b> <span className="text-xs text-muted">if each had reached its target</span></p>}
-                <p>Never got there (ended in loss): <b>{a.lossWithTarget}</b></p>
-              </div>
-            )}
-          </Card>
-        </div>
-      </Section>
-      </>}
+      </div>
+      )}
     </div>
   )
 }
