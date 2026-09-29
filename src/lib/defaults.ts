@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: Settings = {
   monthCapital: {},
   setups: ['Breakout', 'Pullback', 'Reversal', 'Gap', 'Trend follow', 'Other'],
   mistakeTags: ['FOMO', 'Revenge trade', 'Moved SL', 'Oversized', 'Early exit', 'No SL'],
+  exitMistakes: ['Early exit', 'Moved SL'],
   risk: { dailyLossLimit: 2000, maxConsecutiveLosses: 3, maxTradesPerDay: 10 },
   rates: {
     intradayBrokerageFlat: 20,

@@ -76,9 +76,9 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
     followed: summarize(rows.filter((r) => r.trade.followedPlan)),
     broke: summarize(rows.filter((r) => !r.trade.followedPlan)),
     emotion: groupNet(rows, (r) => [r.trade.emotion]),
-    mistakes: mistakeCost(rows),
+    mistakes: mistakeCost(rows, settings.exitMistakes),
     tilt: tilt(rows),
-    disc: discipline(rows),
+    disc: discipline(rows, settings.exitMistakes),
     size: sizing(rows),
     gap: reentry(rows),
     over: overtrading(rows),
@@ -90,7 +90,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
     rHist: rHistogram(rows),
     payoff: payoff(rows),
     adh: adherence(rows),
-  }), [rows])
+  }), [rows, settings.exitMistakes])
 
   if (allRows.length === 0) return <div className="card py-12 text-center text-muted">Log some trades to see behaviour insights.</div>
 
@@ -182,7 +182,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
           ))}
         </div>
 
-        <Card title="Disciplined vs actual P&L" note="What you would have made if you had skipped every trade where you broke your plan or tagged a mistake.">
+        <Card title="Disciplined vs actual P&L" note="What you would have made if you had skipped every trade where you broke your plan or made an entry or behaviour mistake.">
           {disc.flawed.count === 0 ? <Empty>✅ {discV.text}</Empty> : (
             <>
               <div className="space-y-3.5">
@@ -200,7 +200,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
                     ['Clean trades', disc.clean.count, pct(disc.clean.winRate), <N key="a" v={disc.clean.expectancy} />, <N key="b" v={disc.clean.net} />],
                     ['Flawed trades', disc.flawed.count, pct(disc.flawed.winRate), <N key="c" v={disc.flawed.expectancy} />, <N key="d" v={disc.flawed.net} />],
                   ]} />
-                <p className="mt-2 text-xs text-muted">Flawed = broke the plan ({disc.brokePlan}) or had a mistake tagged ({disc.mistaken}); a trade can be both.</p>
+                <p className="mt-2 text-xs text-muted">Flawed = broke the plan ({disc.brokePlan}) or had an entry/behaviour mistake tagged ({disc.mistaken}); a trade can be both. Exit mistakes such as early exit don&apos;t count here.</p>
               </div>
             </>
           )}
@@ -231,8 +231,22 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
               </p>
             </>
           )}
+          {d.mistakes.exit.tags.length > 0 && (
+            <div className="mt-4 rounded-xl border border-line bg-panel2/40 p-3">
+              <div className="label !mb-2">Exit mistakes · counted, not priced</div>
+              <div className="flex flex-wrap gap-2">
+                {d.mistakes.exit.tags.map((e) => (
+                  <span key={e.tag} className="chip !text-fg">{e.tag} <b className="num">{e.count}</b> <span className="text-muted">{e.count === 1 ? 'trade' : 'trades'} · {pct((e.count / Math.max(1, rows.length)) * 100)}</span></span>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {d.mistakes.exit.trades} of {rows.length} trades. These aren&apos;t in the rupee figures above, because the cost of leaving early depends on what the price did after you left.
+                {a.leftAmount > 0 && <> Your targets suggest up to <b className="num text-fg">{inr(a.leftAmount)}</b> was left on the table (see Target discipline).</>}
+              </p>
+            </div>
+          )}
           {d.mistakes.clean.count > 0 && (
-            <p className="mt-2 text-xs text-muted">Trades with no mistakes: {d.mistakes.clean.count}, net <N v={d.mistakes.clean.net} />, avg <N v={d.mistakes.clean.avgNet} /> per trade.</p>
+            <p className="mt-2 text-xs text-muted">Trades with no entry/behaviour mistakes: {d.mistakes.clean.count}, net <N v={d.mistakes.clean.net} />, avg <N v={d.mistakes.clean.avgNet} /> per trade.</p>
           )}
         </Card>
 
@@ -362,6 +376,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
                 <p>Planned average risk:reward: <b>1 : {a.avgPlannedRR.toFixed(1)}</b></p>
                 <p>Reached target: <b>{a.hit}</b> of {a.targetTrades}</p>
                 <p>Exited in profit before target: <b>{a.exitedEarly}</b>{a.exitedEarly > 0 && a.avgLeftR > 0 && <> (left avg {a.avgLeftR.toFixed(1)}R on the table)</>}</p>
+                {a.leftAmount > 0 && <p>Left on the table: up to <b className="num text-warn">{inr(a.leftAmount)}</b> <span className="text-xs text-muted">if each had reached its target</span></p>}
                 <p>Never got there (ended in loss): <b>{a.lossWithTarget}</b></p>
               </div>
             )}

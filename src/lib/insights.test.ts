@@ -217,3 +217,44 @@ describe('disciplineVerdict', () => {
     expect(v([row(100), row(-50, { followedPlan: false })]).text).toContain('sample is small')
   })
 })
+
+describe('exit mistakes', () => {
+  const exit = ['Early exit', 'Moved SL']
+
+  it('discipline ignores exit tags: an early-exit-only trade stays clean', () => {
+    const rows = [row(200, { mistakes: ['Early exit'] }), row(-100, { mistakes: ['FOMO'] }), row(50)]
+    const d = discipline(rows, exit)
+    expect(d.clean).toMatchObject({ count: 2, net: 250 }) // the early exit + the plain trade
+    expect(d.flawed).toMatchObject({ count: 1, net: -100 })
+    expect(d.mistaken).toBe(1)
+    // without the setting, the early exit is flawed as before
+    expect(discipline(rows).clean.count).toBe(1)
+  })
+  it('a trade with an exit tag AND another problem is still flawed', () => {
+    expect(discipline([row(-50, { mistakes: ['Early exit', 'FOMO'] }), row(10)], exit).flawed.count).toBe(1)
+    expect(discipline([row(-50, { mistakes: ['Early exit'], followedPlan: false }), row(10)], exit).flawed.count).toBe(1)
+  })
+  it('mistake cost prices only entry/behaviour tags and reports exit tags as counts', () => {
+    const m = mistakeCost([
+      row(-300, { mistakes: ['FOMO', 'Early exit'] }), // splits over FOMO only
+      row(400, { mistakes: ['Early exit'] }),
+      row(100, { mistakes: ['Moved SL'] }),
+      row(20),
+    ], exit)
+    expect(m.table.map((t) => t.tag)).toEqual(['FOMO'])
+    expect(m.table[0].split.net).toBe(-300)
+    expect(m.tagged).toEqual({ count: 1, net: -300 })
+    expect(m.clean.count).toBe(3)
+    expect(m.exit.trades).toBe(3)
+    expect(m.exit.tags).toEqual([{ tag: 'Early exit', count: 2 }, { tag: 'Moved SL', count: 1 }])
+  })
+  it('adherence totals the money left on the table by exiting in profit before target', () => {
+    const a = adherence([
+      row(0, { entryPrice: 100, stopLoss: 98, target: 106, exitPrice: 104, qty: 10 }), // 2 x 10 = 20 left
+      row(0, { side: 'Short', entryPrice: 100, stopLoss: 102, target: 94, exitPrice: 97, qty: 5 }), // 3 x 5 = 15 left
+      row(0, { entryPrice: 100, stopLoss: 98, target: 106, exitPrice: 107, qty: 10 }), // reached target: none
+    ])
+    expect(a.exitedEarly).toBe(2)
+    expect(a.leftAmount).toBe(35)
+  })
+})

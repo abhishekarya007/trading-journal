@@ -112,7 +112,7 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
   if (a.cutEarly) verdicts.push({ ok: true, text: 'Cut the loss before your stop-loss was hit.' })
   if (a.heldPast) verdicts.push({ ok: false, text: `Held past your stop-loss by ${a.avgOvershootR.toFixed(1)}R.` })
   if (a.hit) verdicts.push({ ok: true, text: 'Reached your target.' })
-  if (a.exitedEarly) verdicts.push({ ok: false, text: a.avgLeftR > 0 ? `Exited in profit before target, leaving about ${a.avgLeftR.toFixed(1)}R on the table.` : 'Exited in profit before your target.' })
+  if (a.exitedEarly) verdicts.push({ ok: false, text: a.avgLeftR > 0 ? `Exited in profit before target, leaving about ${a.avgLeftR.toFixed(1)}R (${inr(a.leftAmount, 2)}) on the table.` : 'Exited in profit before your target.' })
   if (a.lossWithTarget) verdicts.push({ ok: false, text: 'Target was never reached; the trade ended in a loss.' })
   if (!t.stopLoss && !t.target) verdicts.push({ ok: false, text: "No stop-loss or target recorded, so execution can't be judged." })
   else if (!t.stopLoss) verdicts.push({ ok: false, text: "No stop-loss recorded, so R can't be calculated." })

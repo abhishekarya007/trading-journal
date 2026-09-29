@@ -62,6 +62,9 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
             <input className="input" defaultValue={settings.setups.join(', ')} onBlur={(e) => save({ ...settings, setups: list(e.target.value) })} /></div>
           <div><label className="label">Mistake tags (comma separated)</label>
             <input className="input" defaultValue={settings.mistakeTags.join(', ')} onBlur={(e) => save({ ...settings, mistakeTags: list(e.target.value) })} /></div>
+          <div><label className="label">Exit mistakes (tags about leaving a trade)</label>
+            <input className="input" defaultValue={settings.exitMistakes.join(', ')} onBlur={(e) => save({ ...settings, exitMistakes: list(e.target.value) })} />
+            <p className="mt-1 text-[11px] text-muted">Counted, but not priced or used to remove trades from the disciplined comparison.</p></div>
         </div>
       </div>
 

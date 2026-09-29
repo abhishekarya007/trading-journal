@@ -57,17 +57,21 @@ export function holding(rows: Row[]) {
 }
 
 // 3. Cost of mistakes
-export function mistakeCost(rows: Row[]) {
+export function mistakeCost(rows: Row[], exitTags: string[] = []) {
+  // Exit mistakes (early exit, moved SL) are not priced here: skipping the trade is the wrong comparison for
+  // them, and what holding longer would have earned depends on prices after the exit, which we don't have.
+  const isExit = (m: string) => exitTags.includes(m)
+  const own = (r: Row) => r.trade.mistakes.filter((m) => !isExit(m))
   const total = sum(rows.map((r) => r.res.net))
-  const tags = [...new Set(rows.flatMap((r) => r.trade.mistakes))]
+  const tags = [...new Set(rows.flatMap(own))]
   // A trade with several mistakes belongs to several tags. "full" credits each tag with the whole trade
   // (rows overlap, so they don't add up); "split" divides the trade's P&L evenly across its tags (rows add up).
   const table = tags
     .map((tag) => {
-      const w = rows.filter((r) => r.trade.mistakes.includes(tag))
+      const w = rows.filter((r) => own(r).includes(tag))
       const fullNet = sum(w.map((r) => r.res.net))
-      const splitNet = sum(w.map((r) => r.res.net / r.trade.mistakes.length))
-      const solo = w.filter((r) => r.trade.mistakes.length === 1)
+      const splitNet = sum(w.map((r) => r.res.net / own(r).length))
+      const solo = w.filter((r) => own(r).length === 1)
       return {
         tag,
         count: w.length,
@@ -77,14 +81,18 @@ export function mistakeCost(rows: Row[]) {
       }
     })
     .sort((a, b) => a.split.net - b.split.net)
-  const tagged = rows.filter((r) => r.trade.mistakes.length > 0)
-  const multi = tagged.filter((r) => r.trade.mistakes.length > 1)
-  const clean = rows.filter((r) => r.trade.mistakes.length === 0)
+  const tagged = rows.filter((r) => own(r).length > 0)
+  const multi = tagged.filter((r) => own(r).length > 1)
+  const clean = rows.filter((r) => own(r).length === 0)
+  const exitCounts = [...new Set(rows.flatMap((r) => r.trade.mistakes.filter(isExit)))]
+    .map((tag) => ({ tag, count: rows.filter((r) => r.trade.mistakes.includes(tag)).length }))
+    .sort((a, b) => b.count - a.count)
   return {
     table,
     tagged: { count: tagged.length, net: sum(tagged.map((r) => r.res.net)) },
     multi: { count: multi.length, net: sum(multi.map((r) => r.res.net)) },
     clean: { count: clean.length, net: sum(clean.map((r) => r.res.net)), avgNet: avg(clean.map((r) => r.res.net)) },
+    exit: { tags: exitCounts, trades: rows.filter((r) => r.trade.mistakes.some(isExit)).length },
   }
 }
 
@@ -184,7 +192,7 @@ export function overtrading(rows: Row[]) {
 // 11. Stop-loss / target adherence (price-based R, ignores charges)
 export function adherence(rows: Row[]) {
   let losersWithSl = 0, heldPast = 0, cutEarly = 0, asPlanned = 0, overshoot = 0
-  let targetTrades = 0, hit = 0, exitedEarly = 0, leftR = 0, leftN = 0, lossWithTarget = 0
+  let targetTrades = 0, hit = 0, exitedEarly = 0, leftR = 0, leftN = 0, lossWithTarget = 0, leftAmount = 0
   const plannedRR: number[] = []
 
   for (const { trade: t } of rows) {
@@ -206,6 +214,7 @@ export function adherence(rows: Row[]) {
       if (d * (t.exitPrice - t.target) >= 0) hit++
       else if (profitable) {
         exitedEarly++
+        leftAmount += d * (t.target - t.exitPrice) * t.qty
         if (risk > 0) { leftR += (d * (t.target - t.exitPrice)) / risk; leftN++ }
       } else lossWithTarget++
     }
@@ -215,6 +224,7 @@ export function adherence(rows: Row[]) {
     avgOvershootR: heldPast ? overshoot / heldPast : 0,
     targetTrades, hit, exitedEarly, lossWithTarget,
     avgLeftR: leftN ? leftR / leftN : 0,
+    leftAmount, // up to this much more if every such trade had reached its target
     avgPlannedRR: avg(plannedRR),
   }
 }
@@ -230,8 +240,10 @@ const median = (a: number[]) => {
 }
 
 // A. Disciplined vs actual: what if every plan-breaking / mistake-tagged trade had been skipped?
-export function discipline(rows: Row[]) {
-  const isClean = (r: Row) => r.trade.followedPlan && r.trade.mistakes.length === 0
+export function discipline(rows: Row[], exitTags: string[] = []) {
+  // Only plan-breaking and entry/behaviour mistakes make a trade "flawed"; exit mistakes alone do not.
+  const own = (r: Row) => r.trade.mistakes.filter((m) => !exitTags.includes(m))
+  const isClean = (r: Row) => r.trade.followedPlan && own(r).length === 0
   const clean = rows.filter(isClean)
   const flawed = rows.filter((r) => !isClean(r))
   const stat = (a: Row[]) => ({ count: a.length, net: sum(a.map((r) => r.res.net)), winRate: winRateOf(a), expectancy: avg(a.map((r) => r.res.net)) })
@@ -244,7 +256,7 @@ export function discipline(rows: Row[]) {
     clean: stat(clean),
     flawed: stat(flawed),
     brokePlan: rows.filter((r) => !r.trade.followedPlan).length,
-    mistaken: rows.filter((r) => r.trade.mistakes.length > 0).length,
+    mistaken: rows.filter((r) => own(r).length > 0).length,
   }
 }
 

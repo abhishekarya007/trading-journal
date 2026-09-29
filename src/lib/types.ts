@@ -41,6 +41,7 @@ export interface Settings {
   monthCapital: Record<string, number> // fixed trading capital per month, keyed YYYY-MM
   setups: string[]
   mistakeTags: string[]
+  exitMistakes: string[] // subset of mistakeTags about leaving a trade (not priced as 'skip the trade')
   rates: ChargeRates
   risk: RiskRules
 }
