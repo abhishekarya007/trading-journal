@@ -105,7 +105,7 @@ export default function Weekly({ rows, settings }: { rows: Row[]; settings: Sett
         </>
       )}
 
-      <CoachCard rows={rows} settings={settings} weekKey={ws} onFocusSaved={(text) => setReview((r) => ({ ...r, focus: text }))} />
+      <CoachCard hideThisWeek rows={rows} settings={settings} weekKey={ws} onFocusSaved={(text) => setReview((r) => ({ ...r, focus: text }))} />
 
       <div className="card space-y-3">
         <h3 className="text-sm font-semibold">Reflection <span className="text-xs font-normal text-muted">(saved automatically)</span></h3>
