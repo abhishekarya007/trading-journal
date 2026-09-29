@@ -1,23 +1,86 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { groupNet, summarize, type Row } from '../lib/stats'
+import type { Settings } from '../lib/types'
+import { monthlyCapital } from '../lib/capital'
+import CapitalInput from '../components/CapitalInput'
 import {
-  adherence, holding, mistakeCost, overtrading, payoff, rHistogram, scorecard, symbolBoard, tilt, timeOfDay,
+  adherence, discipline, disciplineVerdict, holding, mistakeCost, overtrading, payoff, reentry, rHistogram, scorecard, sizing, symbolBoard, tilt, timeOfDay,
 } from '../lib/insights'
 import { inr, pct, pnlColor } from '../lib/format'
+import { localDate } from '../lib/week'
 import BarPnl from '../components/BarPnl'
 import PageTitle from '../components/PageTitle'
 import { Card, CountBars, Empty, Section, Table, mins } from '../components/InsightBits'
 
 const N = ({ v }: { v: number }) => <span className={pnlColor(v)}>{inr(v)}</span>
+function CompareBar({ label, value, max, sub }: { label: string; value: number; max: number; sub?: string }) {
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between text-sm">
+        <span className="text-muted">{label}{sub && <span className="ml-2 text-[11px]">{sub}</span>}</span>
+        <span className={`num font-semibold ${pnlColor(value)}`}>{value > 0 ? '+' : ''}{inr(value)}</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-panel2">
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${max ? Math.max(3, (Math.abs(value) / max) * 100) : 0}%`, background: value >= 0 ? 'linear-gradient(90deg, var(--up), var(--accent))' : 'linear-gradient(90deg, var(--down), var(--warn))' }} />
+      </div>
+    </div>
+  )
+}
+const x = (v: number) => `${v.toFixed(2)}×`
 const pf = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : '∞')
 
-export default function Insights({ rows }: { rows: Row[] }) {
+const monthLabel = (key: string, long = true) => {
+  const [y, m] = key.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleString('en-IN', { month: long ? 'long' : 'short', year: 'numeric' })
+}
+const prevMonthKey = (key: string) => {
+  const [y, m] = key.split('-').map(Number)
+  const d = new Date(y, m - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+export default function Insights({ rows: allRows, settings, save }: { rows: Row[]; settings: Settings; save: (s: Settings) => void }) {
+  const [mode, setMode] = useState<'split' | 'full'>('split')
+  const [scope, setScope] = useState<'all' | 'month'>('all')
+  const currentMonth = localDate().slice(0, 7)
+  const [month, setMonth] = useState(currentMonth)
+
+  // Months that have trades, plus the current one, newest first.
+  const months = useMemo(
+    () => [...new Set([currentMonth, ...allRows.map((r) => r.trade.date.slice(0, 7))])].sort().reverse(),
+    [allRows, currentMonth],
+  )
+  const rows = useMemo(
+    () => (scope === 'all' ? allRows : allRows.filter((r) => r.trade.date.startsWith(month))),
+    [allRows, scope, month],
+  )
+  const prevSummary = useMemo(() => {
+    if (scope !== 'month') return null
+    const pk = prevMonthKey(month)
+    const pr = allRows.filter((r) => r.trade.date.startsWith(pk))
+    return pr.length ? { key: pk, ...summarize(pr) } : null
+  }, [allRows, scope, month])
+  const period = useMemo(() => summarize(rows), [rows])
+  const caps = useMemo(() => monthlyCapital(allRows, settings, currentMonth), [allRows, settings, currentMonth])
+  const cap = scope === 'month' ? caps.get(month) : undefined
+  const monthReturns = [...caps.values()].filter((c) => c.trades > 0).map((c) => c.returnPct)
+  const avgMonthReturn = monthReturns.length ? monthReturns.reduce((a, b) => a + b, 0) / monthReturns.length : 0
+  const setCap = (m: string, v: number | null) => {
+    const next = { ...settings.monthCapital }
+    if (v === null) delete next[m]
+    else next[m] = v
+    save({ ...settings, monthCapital: next })
+  }
+  const mi = months.indexOf(month)
   const d = useMemo(() => ({
     followed: summarize(rows.filter((r) => r.trade.followedPlan)),
     broke: summarize(rows.filter((r) => !r.trade.followedPlan)),
     emotion: groupNet(rows, (r) => [r.trade.emotion]),
     mistakes: mistakeCost(rows),
     tilt: tilt(rows),
+    disc: discipline(rows),
+    size: sizing(rows),
+    gap: reentry(rows),
     over: overtrading(rows),
     setups: scorecard(rows, (r) => r.trade.setup || 'None'),
     symbols: symbolBoard(rows),
@@ -29,9 +92,23 @@ export default function Insights({ rows }: { rows: Row[] }) {
     adh: adherence(rows),
   }), [rows])
 
-  if (rows.length === 0) return <div className="card py-12 text-center text-muted">Log some trades to see behaviour insights.</div>
+  if (allRows.length === 0) return <div className="card py-12 text-center text-muted">Log some trades to see behaviour insights.</div>
 
-  const { tilt: t, payoff: p, adh: a } = d
+  const { tilt: t, payoff: p, adh: a, disc, size, gap } = d
+  const discMax = Math.max(Math.abs(disc.actual), Math.abs(disc.disciplined), 1)
+  const discV = disciplineVerdict(disc)
+  const sizeEnough = size.count >= 5
+  const chase = (r: { count: number; ratio: number }) => r.count >= 3 && r.ratio > 1.15
+  const sizeMsg = !sizeEnough ? 'Need at least 5 trades to judge your sizing.'
+    : chase(size.afterTwoLosses) ? '⚠ You size up after two losses in a row, the classic way to dig a deeper hole.'
+      : chase(size.afterLoss) ? '⚠ You trade bigger right after a loss (revenge sizing).'
+        : chase(size.afterWin) ? '⚠ You trade bigger right after a win, which can be overconfidence.'
+          : size.cv < 0.3 ? 'Your position sizes are very consistent. 👍' : size.cv < 0.6 ? 'Your sizing varies moderately.' : 'Your sizing swings a lot from trade to trade. Pick one standard size or risk amount.'
+  const quickBad = gap.quick.count >= 2 && gap.quick.net < 0
+  const gapMsg = gap.measured === 0 ? 'Add exit and entry times to your trades to see this.'
+    : gap.quick.count === 0 ? '✅ You never re-entered within 5 minutes of a losing trade.'
+      : quickBad ? `⚠ ${gap.quick.count} re-entries within 5 minutes of a loss lost ${inr(-gap.quick.net)} in total${gap.slower.count >= 2 ? ` (avg ${inr(gap.quick.avgNet)} vs ${inr(gap.slower.avgNet)} when you waited)` : ''}. Take a short break after every loss.`
+        : `${gap.quick.count} quick re-entries after a loss made ${inr(gap.quick.net)}, so it hasn't hurt so far.`
   const tiltMsg =
     t.afterLoss.count >= 3 && t.afterWin.count >= 3
       ? t.afterLoss.avgNet < t.afterWin.avgNet && t.afterLoss.avgSize > t.afterWin.avgSize * 1.15
@@ -43,7 +120,57 @@ export default function Insights({ rows }: { rows: Row[] }) {
 
   return (
     <div className="space-y-8">
-      <PageTitle title="Insights" sub="What your trades say about your habits and edge" />
+      <PageTitle title="Insights" sub={scope === 'all' ? 'What your trades say about your habits and edge · all time' : `What went on in ${monthLabel(month)}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="seg" role="group" aria-label="Period">
+            <button aria-pressed={scope === 'all'} onClick={() => setScope('all')}>All time</button>
+            <button aria-pressed={scope === 'month'} onClick={() => setScope('month')}>Month</button>
+          </div>
+          {scope === 'month' && (
+            <div className="flex items-center gap-1.5">
+              <button className="btn-ghost !px-2.5" onClick={() => setMonth(months[mi + 1])} disabled={mi >= months.length - 1} aria-label="Previous month">‹</button>
+              <select className="input !w-auto !py-1.5" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">
+                {months.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}
+              </select>
+              <button className="btn-ghost !px-2.5" onClick={() => setMonth(months[mi - 1])} disabled={mi <= 0} aria-label="Next month">›</button>
+              {cap && (
+                <div className="ml-1 flex items-center gap-2">
+                  <span className="label !mb-0 hidden sm:block">Trading capital</span>
+                  <CapitalInput key={month} value={cap.capital} overridden={cap.overridden} compact onSave={(v) => setCap(month, v)} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </PageTitle>
+
+      <div className="-mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <span className="chip">{period.count} trades</span>
+        {cap ? (
+          <>
+            <span className="chip">Capital <b className="num text-fg">{inr(cap.capital)}</b></span>
+            <span className="chip">P&amp;L <b className={`num ${pnlColor(period.net)}`}>{period.net > 0 ? '+' : ''}{inr(period.net)}</b></span>
+            <span className="chip">Return <b className={`num ${pnlColor(cap.returnPct)}`}>{cap.returnPct > 0 ? '+' : ''}{cap.returnPct.toFixed(2)}%</b></span>
+            <span className="chip">Max drawdown <b className="num text-down">{cap.capital > 0 ? ((period.maxDrawdown / cap.capital) * 100).toFixed(2) : '0.00'}%</b></span>
+          </>
+        ) : (
+          <>
+            <span className="chip">Net <b className={`num ${pnlColor(period.net)}`}>{period.net > 0 ? '+' : ''}{inr(period.net)}</b></span>
+            {monthReturns.length > 1 && <span className="chip">Avg month <b className={`num ${pnlColor(avgMonthReturn)}`}>{avgMonthReturn > 0 ? '+' : ''}{avgMonthReturn.toFixed(2)}%</b></span>}
+          </>
+        )}
+        <span className="chip">Win rate <b className="num text-fg">{pct(period.winRate)}</b></span>
+        <span className="chip">Profit factor <b className="num text-fg">{pf(period.profitFactor)}</b></span>
+        <span className="chip">Charges <b className="num text-fg">{inr(period.charges)}</b></span>
+        {prevSummary && (
+          <span className="chip">vs {monthLabel(prevSummary.key, false)}{' '}
+            <b className={`num ${pnlColor(period.net - prevSummary.net)}`}>{period.net - prevSummary.net > 0 ? '+' : ''}{inr(period.net - prevSummary.net)}</b>
+          </span>
+        )}
+      </div>
+
+      {rows.length === 0 && <div className="card py-12 text-center text-muted">No trades in {monthLabel(month)}. Pick another month or switch to All time.</div>}
+      {rows.length > 0 && <>
       <Section title="Behaviour">
         <div className="grid gap-3 md:grid-cols-2">
           {([['Followed plan', d.followed], ['Broke plan', d.broke]] as const).map(([label, x]) => (
@@ -55,10 +182,54 @@ export default function Insights({ rows }: { rows: Row[] }) {
           ))}
         </div>
 
-        <Card title="Cost of mistakes" note="'If avoided' = your net P&L had you skipped every trade with that tag.">
+        <Card title="Disciplined vs actual P&L" note="What you would have made if you had skipped every trade where you broke your plan or tagged a mistake.">
+          {disc.flawed.count === 0 ? <Empty>✅ {discV.text}</Empty> : (
+            <>
+              <div className="space-y-3.5">
+                <CompareBar label="Actual" sub={`${d.followed.count + d.broke.count} trades`} value={disc.actual} max={discMax} />
+                <CompareBar label="If disciplined" sub={`${disc.clean.count} clean trades`} value={disc.disciplined} max={discMax} />
+              </div>
+              <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="label !mb-0">{disc.cost >= 0 ? 'Indiscipline cost' : 'Rule-breaking gain'}</span>
+                <span className={`num text-2xl font-semibold ${disc.cost > 0 ? 'text-down' : 'text-up'}`}>{inr(Math.abs(disc.cost))}</span>
+              </div>
+              <p className={`mt-2 rounded-xl border px-3 py-2 text-sm leading-relaxed ${discV.tone === 'warn' ? 'border-warn/40 bg-warn/10' : 'border-accent/30 bg-accent/10'}`}>{discV.text}</p>
+              <div className="mt-3">
+                <Table head={['', 'Trades', 'Win rate', 'Avg / trade', 'Net']}
+                  rows={[
+                    ['Clean trades', disc.clean.count, pct(disc.clean.winRate), <N key="a" v={disc.clean.expectancy} />, <N key="b" v={disc.clean.net} />],
+                    ['Flawed trades', disc.flawed.count, pct(disc.flawed.winRate), <N key="c" v={disc.flawed.expectancy} />, <N key="d" v={disc.flawed.net} />],
+                  ]} />
+                <p className="mt-2 text-xs text-muted">Flawed = broke the plan ({disc.brokePlan}) or had a mistake tagged ({disc.mistaken}); a trade can be both.</p>
+              </div>
+            </>
+          )}
+        </Card>
+
+        <Card title="Cost of mistakes" note={mode === 'split'
+          ? 'A trade with several mistakes has its P&L divided evenly between them, so the rows add up to what you actually lost.'
+          : "Each tag gets the whole trade's P&L. Trades with several mistakes appear in several rows, so the rows overlap and don't add up."}>
           {d.mistakes.table.length === 0 ? <Empty>No mistakes tagged yet.</Empty> : (
-            <Table head={['Mistake', 'Trades', 'Total P&L', 'Avg / trade', 'If avoided']}
-              rows={d.mistakes.table.map((m) => [m.tag, m.count, <N v={m.net} />, <N v={m.avgNet} />, <N v={m.netWithout} />])} />
+            <>
+              <div className="seg mb-3" role="group" aria-label="How to count trades with several mistakes">
+                <button aria-pressed={mode === 'split'} onClick={() => setMode('split')}>Split evenly</button>
+                <button aria-pressed={mode === 'full'} onClick={() => setMode('full')}>Full trade</button>
+              </div>
+              <Table head={['Mistake', 'Trades', 'Only this mistake', 'Total P&L', 'Avg / trade', 'If avoided']}
+                rows={[
+                  ...d.mistakes.table.map((m) => [
+                    m.tag, m.count,
+                    m.solo.count ? <span key="s"><N v={m.solo.net} /> <span className="text-muted">({m.solo.count})</span></span> : <span key="s" className="text-muted">–</span>,
+                    <N key="n" v={m[mode].net} />, <N key="a" v={m[mode].avgNet} />, <N key="w" v={m[mode].netWithout} />,
+                  ]),
+                  [<b key="t">All mistaken trades</b>, d.mistakes.tagged.count, '', <b key="tn"><N v={d.mistakes.tagged.net} /></b>, <N key="ta" v={d.mistakes.tagged.count ? d.mistakes.tagged.net / d.mistakes.tagged.count : 0} />, ''],
+                ]} />
+              <p className="mt-2 text-xs text-muted">
+                “If avoided” = your net P&amp;L {mode === 'split' ? "with only this mistake's share removed" : 'had you skipped every trade with that tag'}.
+                The last row counts each trade once.
+                {d.mistakes.multi.count > 0 && <> {d.mistakes.multi.count} of your mistaken trades had 2+ mistakes (combined P&amp;L <N v={d.mistakes.multi.net} />).</>}
+              </p>
+            </>
           )}
           {d.mistakes.clean.count > 0 && (
             <p className="mt-2 text-xs text-muted">Trades with no mistakes: {d.mistakes.clean.count}, net <N v={d.mistakes.clean.net} />, avg <N v={d.mistakes.clean.avgNet} /> per trade.</p>
@@ -76,6 +247,45 @@ export default function Insights({ rows }: { rows: Row[] }) {
             {d.over.length === 0 ? <Empty /> : (
               <Table head={['Trades that day', 'Days', 'Avg day P&L', 'Total']}
                 rows={d.over.map((o) => [o.name, o.days, <N v={o.avgDayNet} />, <N v={o.totalNet} />])} />
+            )}
+          </Card>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card title="Position size consistency" note={sizeEnough ? `Size = entry price × quantity. Your median is ${inr(size.median)}.` : undefined}>
+            {!sizeEnough ? <Empty>{sizeMsg}</Empty> : (
+              <>
+                <Table head={['', 'Trades', 'Win rate', 'Avg P&L']}
+                  rows={[
+                    ['Normal size', size.normal.count, pct(size.normal.winRate), <N key="n" v={size.normal.avgNet} />],
+                    [`Oversized (>${size.overFactor}× median)`, size.oversized.count, size.oversized.count ? pct(size.oversized.winRate) : '–', size.oversized.count ? <N key="o" v={size.oversized.avgNet} /> : '–'],
+                  ]} />
+                <div className="mt-3">
+                  <Table head={['Size vs your median, right after…', 'Trades', 'Avg size']}
+                    rows={([['a win', size.afterWin], ['a loss', size.afterLoss], ['2+ losses in a row', size.afterTwoLosses]] as const).map(([l, g]) => [
+                      l, g.count,
+                      g.count ? <span key={l} className={g.ratio > 1.15 ? 'text-warn' : ''}>{x(g.ratio)}</span> : '–',
+                    ])} />
+                </div>
+                <p className="mt-2 text-sm">{sizeMsg}</p>
+                <p className="mt-1 text-xs text-muted">Variation {(size.cv * 100).toFixed(0)}% · biggest trade {x(size.biggestRatio)} your median.</p>
+              </>
+            )}
+          </Card>
+
+          <Card title="Time between trades after a loss" note="Gap from exiting one trade to entering the next, same day. Quick re-entry is a classic revenge-trade sign.">
+            {gap.measured === 0 ? <Empty>{gapMsg}</Empty> : (
+              <>
+                <Table head={['After a loss, waited', 'Trades', 'Win rate', 'Avg P&L']}
+                  rows={gap.afterLoss.map((b) => [b.name, b.count, pct(b.winRate), <N key={b.name} v={b.avgNet} />])} />
+                {gap.afterWin.length > 0 && (
+                  <div className="mt-3">
+                    <Table head={['After a win, waited', 'Trades', 'Win rate', 'Avg P&L']}
+                      rows={gap.afterWin.map((b) => [b.name, b.count, pct(b.winRate), <N key={b.name} v={b.avgNet} />])} />
+                  </div>
+                )}
+                <p className="mt-2 text-sm">{gapMsg}</p>
+                {gap.missing > 0 && <p className="mt-1 text-xs text-muted">{gap.missing} same-day pairs lack an exit or entry time and are excluded.</p>}
+              </>
             )}
           </Card>
         </div>
@@ -158,6 +368,7 @@ export default function Insights({ rows }: { rows: Row[] }) {
           </Card>
         </div>
       </Section>
+      </>}
     </div>
   )
 }

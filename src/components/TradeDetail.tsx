@@ -4,6 +4,9 @@ import type { Row } from '../lib/stats'
 import { adherence, holdMinutes } from '../lib/insights'
 import { inr, pct, pnlColor } from '../lib/format'
 import Modal from './Modal'
+import SymbolAvatar from './SymbolAvatar'
+import { tradeSummary } from '../lib/tradeText'
+import { toast } from '../lib/toast'
 
 interface Props {
   row: Row
@@ -12,6 +15,7 @@ interface Props {
   onClose: () => void
   onEdit: () => void
   onDelete: () => void
+  onDuplicate: () => void
   onPrev?: () => void
   onNext?: () => void
 }
@@ -51,7 +55,7 @@ function Ladder({ t }: { t: Trade }) {
       {pts.map((p) => (
         <div key={p.key} className="absolute top-1/2 -translate-x-1/2" style={{ left: `${pos(p.v)}%` }}>
           <div className={`h-3 w-3 -translate-y-1/2 rounded-full border-2 border-panel bg-current ${p.cls}`} />
-          <div className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-center text-[11px] leading-tight ${p.above ? 'bottom-3' : 'top-3'}`}>
+          <div className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-center text-[11px] leading-tight ${p.above ? 'bottom-5' : 'top-2'}`}>
             <div className="text-muted">{p.key}</div>
             <div className={`num font-semibold ${p.cls}`}>{price(p.v)}</div>
           </div>
@@ -61,7 +65,7 @@ function Ladder({ t }: { t: Trade }) {
   )
 }
 
-export default function TradeDetail({ row, settings, position, onClose, onEdit, onDelete, onPrev, onNext }: Props) {
+export default function TradeDetail({ row, settings, position, onClose, onEdit, onDelete, onDuplicate, onPrev, onNext }: Props) {
   const { trade: t, res } = row
   const [zoom, setZoom] = useState<string | null>(null)
 
@@ -76,6 +80,25 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [zoom, onPrev, onNext])
+
+  const copyText = async () => {
+    const text = tradeSummary(row)
+    try {
+      await navigator.clipboard.writeText(text)
+      toast('Trade summary copied')
+    } catch {
+      // Clipboard API needs a secure context/permission; fall back to a hidden textarea.
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      const ok = document.execCommand('copy')
+      ta.remove()
+      toast(ok ? 'Trade summary copied' : "Couldn't copy to clipboard", ok ? 'success' : 'error')
+    }
+  }
 
   const risk = t.stopLoss ? Math.abs(t.entryPrice - t.stopLoss) * t.qty : 0
   const reward = t.target ? Math.abs(t.target - t.entryPrice) * t.qty : 0
@@ -96,7 +119,8 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
 
   const title = (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span className="text-lg font-bold tracking-wide">{t.symbol}</span>
+      <SymbolAvatar symbol={t.symbol} />
+      <span className="font-display text-lg font-bold tracking-wide">{t.symbol}</span>
       <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${t.side === 'Long' ? 'bg-up/15 text-up' : 'bg-down/15 text-down'}`}>{t.side.toUpperCase()}</span>
       <span className="text-sm font-normal text-muted">{t.date}{t.entryTime && ` · ${t.entryTime}`}{t.exitTime && ` → ${t.exitTime}`}</span>
     </div>
@@ -116,8 +140,10 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
               <button className="btn-ghost !px-2.5 !py-1" onClick={onNext} disabled={!onNext} aria-label="Older trade">›</button>
               <span className="hidden md:inline">use ← → keys</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button className="btn-ghost !text-down" onClick={onDelete}>Delete</button>
+              <button className="btn-ghost" onClick={copyText} title="Copy a text summary to the clipboard">Copy text</button>
+              <button className="btn-ghost" onClick={onDuplicate} title="Start a new trade from this one">Duplicate</button>
               <button className="btn" onClick={onEdit}>Edit trade</button>
             </div>
           </div>
@@ -127,7 +153,7 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <div className="label !mb-0.5">Net P&amp;L</div>
-              <div className={`num text-4xl font-semibold tracking-tight ${pnlColor(res.net)}`}>{res.net > 0 ? '+' : ''}{inr(res.net, 2)}</div>
+              <div className={`num text-5xl font-semibold tracking-tight ${pnlColor(res.net)} ${res.net > 0 ? 'glow-up' : res.net < 0 ? 'glow-down' : ''}`}>{res.net > 0 ? '+' : ''}{inr(res.net, 2)}</div>
             </div>
             <div className="text-right text-sm text-muted">
               <div className={`num text-lg font-semibold ${pnlColor(res.net)}`}>{res.returnPct > 0 ? '+' : ''}{pct(res.returnPct)}</div>

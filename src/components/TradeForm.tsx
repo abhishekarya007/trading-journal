@@ -19,13 +19,14 @@ const blank = (settings: Settings): Trade => ({
 interface Props {
   settings: Settings
   initial?: Trade
+  prefill?: Trade // start a NEW trade from a template (e.g. a duplicate)
   rows: Row[]
   onSave: (t: Trade) => void
   onCancel?: () => void
 }
 
-export default function TradeForm({ settings, initial, rows, onSave, onCancel }: Props) {
-  const [t, setT] = useState<Trade>(initial ?? blank(settings))
+export default function TradeForm({ settings, initial, prefill, rows, onSave, onCancel }: Props) {
+  const [t, setT] = useState<Trade>(initial ?? prefill ?? blank(settings))
   const [imgError, setImgError] = useState('')
   const warnings = useMemo(() => evaluateDay(rows, t.date, settings.risk), [rows, t.date, settings.risk])
 
@@ -39,7 +40,7 @@ export default function TradeForm({ settings, initial, rows, onSave, onCancel }:
   const set = <K extends keyof Trade>(k: K, v: Trade[K]) => setT((p) => ({ ...p, [k]: v }))
   const num = (k: 'qty' | 'entryPrice' | 'exitPrice' | 'stopLoss' | 'target') => ({
     type: 'number' as const, step: 'any', min: 0, className: 'input',
-    value: t[k] ?? '',
+    value: t[k] || '', // show an empty box rather than 0 for unfilled prices/quantity
     onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
       set(k, (e.target.value === '' ? (k === 'stopLoss' || k === 'target' ? undefined : 0) : Number(e.target.value)) as never),
   })
@@ -59,12 +60,12 @@ export default function TradeForm({ settings, initial, rows, onSave, onCancel }:
       <RiskBanner warnings={warnings} title={`Risk rules for ${t.date} — think before adding another trade`} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div><label className="label">Date</label><input type="date" className="input" value={t.date} onChange={(e) => set('date', e.target.value)} required /></div>
-        <div><label className="label">Symbol</label><input autoFocus={!initial} className="input uppercase" placeholder="RELIANCE" value={t.symbol} onChange={(e) => set('symbol', e.target.value)} required /></div>
+        <div><label className="label">Symbol</label><input data-autofocus={!initial && !prefill ? true : undefined} className="input uppercase" placeholder="RELIANCE" value={t.symbol} onChange={(e) => set('symbol', e.target.value)} required /></div>
         <div><label className="label">Side</label>
           <select className="input" value={t.side} onChange={(e) => set('side', e.target.value as Trade['side'])}><option>Long</option><option>Short</option></select></div>
         <div><label className="label">Quantity</label><input {...num('qty')} step={1} /></div>
         <div><label className="label">Entry price</label><input {...num('entryPrice')} /></div>
-        <div><label className="label">Exit price</label><input {...num('exitPrice')} /></div>
+        <div><label className="label">Exit price</label><input data-autofocus={prefill ? true : undefined} {...num('exitPrice')} /></div>
         <div><label className="label">Stop-loss (optional)</label><input {...num('stopLoss')} /></div>
         <div><label className="label">Target (optional)</label><input {...num('target')} /></div>
         <div><label className="label">Entry time (optional)</label><input type="time" className="input" value={t.entryTime ?? ''} onChange={(e) => set('entryTime', e.target.value || undefined)} /></div>

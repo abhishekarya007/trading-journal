@@ -4,6 +4,7 @@ import type { Settings } from './types'
 // page and NSE/SEBI circulars, then edit in Settings.
 export const DEFAULT_SETTINGS: Settings = {
   startingCapital: 100000,
+  monthCapital: {},
   setups: ['Breakout', 'Pullback', 'Reversal', 'Gap', 'Trend follow', 'Other'],
   mistakeTags: ['FOMO', 'Revenge trade', 'Moved SL', 'Oversized', 'Early exit', 'No SL'],
   risk: { dailyLossLimit: 2000, maxConsecutiveLosses: 3, maxTradesPerDay: 10 },

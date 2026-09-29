@@ -37,7 +37,8 @@ export interface ChargeRates {
 }
 
 export interface Settings {
-  startingCapital: number
+  startingCapital: number // default monthly trading capital, used until a month has its own amount
+  monthCapital: Record<string, number> // fixed trading capital per month, keyed YYYY-MM
   setups: string[]
   mistakeTags: string[]
   rates: ChargeRates
