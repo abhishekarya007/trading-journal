@@ -33,4 +33,5 @@ export const IconChevLeft = () => <svg {...small}><path d="M15 6l-6 6 6 6" /></s
 export const IconChevRight = () => <svg {...small}><path d="M9 6l6 6-6 6" /></svg>
 export const IconChecklist = () => <svg {...base}><path d="M9 6h11M9 12h11M9 18h11" /><path d="M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17" /></svg>
 export const IconRulebook = () => <svg {...base}><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4z" /><path d="M5 17a3 3 0 013-3h11" /><path d="M9.5 8.5l1.7 1.7 3.3-3.4" /></svg>
+export const IconSimulator = () => <svg {...base}><path d="M4 19V5" /><path d="M4 19h16" /><path d="M7 15l3-4 3 2 5-6" /><path d="M7 12l3-2 3 4 5-3" opacity=".55" /></svg>
 export const IconTimer = () => <svg {...base}><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2M9 2h6M12 2v3" /></svg>

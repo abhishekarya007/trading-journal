@@ -33,9 +33,10 @@ import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
 import { useFlash } from './lib/useFlash'
 import {
-  IconChecklist, IconRulebook, IconTimer, IconCalc, IconChevLeft, IconChevRight, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
+  IconChecklist, IconRulebook, IconSimulator, IconTimer, IconCalc, IconChevLeft, IconChevRight, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
 } from './components/Icons'
 import Rulebook from './pages/Rulebook'
+import Simulator from './pages/Simulator'
 
 const links: { to: string; label: string; Icon: () => ReactElement; desktopOnly?: boolean }[] = [
   { to: '/', label: 'Dashboard', Icon: IconDashboard },
@@ -44,6 +45,7 @@ const links: { to: string; label: string; Icon: () => ReactElement; desktopOnly?
   { to: '/weekly', label: 'Weekly', Icon: IconWeekly },
   { to: '/insights', label: 'Insights', Icon: IconInsights },
   { to: '/rulebook', label: 'Rulebook', Icon: IconRulebook, desktopOnly: true },
+  { to: '/simulator', label: 'Simulator', Icon: IconSimulator, desktopOnly: true },
   { to: '/report', label: 'Report', Icon: IconReport, desktopOnly: true },
   { to: '/settings', label: 'Settings', Icon: IconSettings },
 ]
@@ -342,6 +344,7 @@ export default function App() {
               <Route path="/calculator" element={<Calculator rows={rows} settings={settings} save={saveSettings} />} />
               <Route path="/report" element={<Report rows={rows} settings={settings} />} />
               <Route path="/weekly" element={<Weekly rows={rows} settings={settings} />} />
+              <Route path="/simulator" element={<Simulator rows={rows} settings={settings} />} />
               <Route path="/rulebook" element={<Rulebook rows={rows} settings={settings} save={saveSettings} />} />
               <Route path="/insights" element={<Insights rows={rows} settings={settings} save={saveSettings} />} />
               <Route path="/settings" element={<SettingsPage rows={rows} settings={settings} save={saveSettings} refresh={refresh} />} />
