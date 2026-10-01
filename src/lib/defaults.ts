@@ -10,6 +10,9 @@ export const DEFAULT_SETTINGS: Settings = {
   exitMistakes: ['Early exit', 'Moved SL'],
   risk: { dailyLossLimit: 2000, maxConsecutiveLosses: 3, maxTradesPerDay: 10 },
   calculator: { capital: 100000, maxLoss: 1000 },
+  goals: { profit: 0, maxLoss: 0 },
+  monthGoal: {},
+  monthMaxLoss: {},
   rates: {
     intradayBrokerageFlat: 20,
     intradayBrokeragePct: 0.03,

@@ -9,7 +9,7 @@ export default function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([])
   useEffect(() => subscribeToasts(setItems), [])
   return createPortal(
-    <div className="pointer-events-none fixed bottom-24 right-4 z-[90] flex flex-col items-end gap-2 md:bottom-6 md:right-6" aria-live="polite">
+    <div className="no-print pointer-events-none fixed bottom-24 right-4 z-[90] flex flex-col items-end gap-2 md:bottom-6 md:right-6" aria-live="polite">
       {items.map((t) => (
         <div key={t.id} role="status" className="pointer-events-auto flex items-center gap-3 rounded-xl border border-line bg-panel/90 py-2.5 pl-4 pr-3 text-sm shadow-2xl backdrop-blur-xl"
           style={{ animation: 'toast-in .25s ease-out both' }}>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Settings, WeeklyReview } from '../lib/types'
 import { summarize, type Row } from '../lib/stats'
 import { evaluateDay } from '../lib/risk'
@@ -18,6 +19,7 @@ function top(rows: Row[], pick: (r: Row) => string[]) {
 }
 
 export default function Weekly({ rows, settings }: { rows: Row[]; settings: Settings }) {
+  const navigate = useNavigate()
   const thisWeek = weekStart(localDate())
   const [ws, setWs] = useState(thisWeek)
   const [review, setReview] = useState<WeeklyReview>(emptyReview(ws))
@@ -61,7 +63,8 @@ export default function Weekly({ rows, settings }: { rows: Row[]; settings: Sett
   return (
     <div className="space-y-4">
       <PageTitle title="Weekly review" sub={formatRange(ws)}>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-ghost" onClick={() => navigate(`/report?mode=week&p=${ws}`)} title="A printable summary of this week">Report</button>
           <button className="btn-ghost" onClick={() => setWs(addDays(ws, -7))} aria-label="Previous week">‹ Prev</button>
           <button className="btn-ghost" onClick={() => setWs(thisWeek)} disabled={ws === thisWeek}>This week</button>
           <button className="btn-ghost" onClick={() => setWs(addDays(ws, 7))} disabled={ws >= thisWeek} aria-label="Next week">Next ›</button>

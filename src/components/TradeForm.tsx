@@ -6,6 +6,8 @@ import { localDate } from '../lib/week'
 import { inr, pnlColor } from '../lib/format'
 import { fileToDataUrl } from '../lib/image'
 import { evaluateDay } from '../lib/risk'
+import { monthlyCapital } from '../lib/capital'
+import { goalStatus, monthLimitWarnings } from '../lib/goals'
 import { validateTrade } from '../lib/validate'
 import type { Row } from '../lib/stats'
 import RiskBanner from './RiskBanner'
@@ -40,7 +42,12 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
   const [imgError, setImgError] = useState('')
   // New trades follow your last choice; editing opens the extras only if the trade has some.
   const [more, setMore] = useState(() => (initial ? extrasFilled(initial) > 0 : rememberedMore()))
-  const warnings = useMemo(() => evaluateDay(rows, t.date, settings.risk), [rows, t.date, settings.risk])
+  const warnings = useMemo(() => {
+    const month = t.date.slice(0, 7)
+    const cap = monthlyCapital(rows, settings, today().slice(0, 7)).get(month)
+    const net = rows.filter((r) => r.trade.date.startsWith(month) && r.trade.id !== initial?.id).reduce((s, r) => s + r.res.net, 0)
+    return [...evaluateDay(rows, t.date, settings.risk), ...monthLimitWarnings(goalStatus(net, cap?.goal ?? 0, cap?.maxLoss ?? 0, month, today()))]
+  }, [rows, t.date, settings, initial?.id])
 
   const toggleMore = () => {
     const next = !more

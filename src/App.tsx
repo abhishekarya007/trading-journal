@@ -1,5 +1,5 @@
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { db, useSettings, useTrades } from './lib/db'
 import { calcTrade } from './lib/calc'
 import { summarize, type Row } from './lib/stats'
@@ -12,6 +12,7 @@ import Trades from './pages/Trades'
 import Insights from './pages/Insights'
 import Weekly from './pages/Weekly'
 import Calculator from './pages/Calculator'
+import Report from './pages/Report'
 import SettingsPage from './pages/SettingsPage'
 import Ticker, { type Tick } from './components/Ticker'
 import CommandPalette, { type Command } from './components/CommandPalette'
@@ -22,15 +23,16 @@ import { backupStatus, downloadBackup, requestStorageProtection, useBackupInfo }
 import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
 import {
-  IconCalc, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
+  IconCalc, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
 } from './components/Icons'
 
-const links = [
+const links: { to: string; label: string; Icon: () => ReactElement; desktopOnly?: boolean }[] = [
   { to: '/', label: 'Dashboard', Icon: IconDashboard },
   { to: '/trades', label: 'Trades', Icon: IconTrades },
   { to: '/calculator', label: 'Calculator', Icon: IconCalc },
   { to: '/weekly', label: 'Weekly', Icon: IconWeekly },
   { to: '/insights', label: 'Insights', Icon: IconInsights },
+  { to: '/report', label: 'Report', Icon: IconReport, desktopOnly: true },
   { to: '/settings', label: 'Settings', Icon: IconSettings },
 ]
 
@@ -152,7 +154,7 @@ export default function App() {
   )
 
   return (
-    <div className="min-h-screen md:pl-64">
+    <div className="app-shell min-h-screen md:pl-64">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line/70 bg-panel/55 p-4 backdrop-blur-2xl md:flex">
         <div className="mb-5 flex items-center gap-3 px-1">
@@ -237,6 +239,7 @@ export default function App() {
               <Route path="/" element={<Dashboard rows={rows} settings={settings} onAdd={addTrade} />} />
               <Route path="/trades" element={<Trades rows={rows} settings={settings} refresh={refresh} />} />
               <Route path="/calculator" element={<Calculator rows={rows} settings={settings} save={saveSettings} />} />
+              <Route path="/report" element={<Report rows={rows} settings={settings} />} />
               <Route path="/weekly" element={<Weekly rows={rows} settings={settings} />} />
               <Route path="/insights" element={<Insights rows={rows} settings={settings} save={saveSettings} />} />
               <Route path="/settings" element={<SettingsPage rows={rows} settings={settings} save={saveSettings} refresh={refresh} />} />
@@ -247,9 +250,9 @@ export default function App() {
 
       {/* Mobile: floating add + bottom nav */}
       {path !== '/calculator' && <button onClick={addTrade} aria-label="Add trade"
-        className={`btn fixed bottom-20 z-30 !h-14 !w-14 !rounded-2xl !p-0 md:hidden ${onTrades ? 'left-4' : 'right-4'}`}><IconPlus /></button>}
+        className={`no-print btn fixed bottom-20 z-30 !h-14 !w-14 !rounded-2xl !p-0 md:hidden ${onTrades ? 'left-4' : 'right-4'}`}><IconPlus /></button>}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line/70 bg-panel/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl md:hidden">
-        {links.map(({ to, label, Icon }) => (
+        {links.filter((l) => !l.desktopOnly).map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} end={to === '/'}
             className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] transition ${isActive ? 'text-accent' : 'text-muted'}`}>
             <Icon /> {label}

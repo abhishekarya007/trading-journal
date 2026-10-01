@@ -2,7 +2,7 @@ import type { RiskRules } from './types'
 import type { Row } from './stats'
 
 export interface RiskWarning {
-  rule: 'loss' | 'streak' | 'count'
+  rule: 'loss' | 'streak' | 'count' | 'month'
   message: string
 }
 

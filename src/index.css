@@ -183,3 +183,24 @@ table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%,
   .ticker { overflow-x: auto; }
   * { transition: none !important; }
 }
+
+/* ---- Report: a light, paper-style sheet that prints / saves as PDF whatever theme the app is in ---- */
+.report-sheet {
+  --bg: #ffffff; --panel: #ffffff; --panel2: #f3f5f9; --line: #d9dee8; --fg: #0f172a; --muted: #5b6579;
+  --accent: #2563eb; --up: #0a8f5f; --down: #d02446; --warn: #b4690e; --card: #ffffff;
+  background: #ffffff; color: var(--fg); color-scheme: light;
+}
+@page { size: A4; margin: 12mm; }
+@media print {
+  html, body { background: #fff !important; }
+  body::before, body::after { display: none !important; }
+  aside, .no-print, nav.fixed, header.sticky, .ticker { display: none !important; }
+  .app-shell { padding-left: 0 !important; }
+  main { padding: 0 !important; max-width: none !important; }
+  .page, .rise { animation: none !important; }
+  .report-sheet { box-shadow: none !important; border: 0 !important; padding: 0 !important; max-width: none !important; border-radius: 0 !important; }
+  .report-sheet .avoid-break { break-inside: avoid; }
+  .report-sheet table { break-inside: auto; }
+  .report-sheet tr { break-inside: avoid; }
+  .report-sheet thead { display: table-header-group; }
+}

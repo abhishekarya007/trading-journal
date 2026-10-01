@@ -188,6 +188,7 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
                 {months.map((k) => <option key={k} value={k}>{monthLabel(k)}</option>)}
               </select>
               <button className="btn-ghost !px-2.5" onClick={() => setMonth(months[mi - 1])} disabled={mi <= 0} aria-label="Next month">›</button>
+              <button type="button" className="btn-ghost !px-2.5 text-xs" onClick={() => navigate(`/report?mode=month&p=${month}`)} title="A printable summary of this month">Report</button>
               {cap && (
                 <div className="ml-1 flex items-center gap-2">
                   <span className="label !mb-0 hidden sm:block">Trading capital</span>

@@ -12,6 +12,8 @@ import { evaluateDay } from '../lib/risk'
 import { monthlyCapital } from '../lib/capital'
 import CoachCard from '../components/CoachCard'
 import BackupBanner from '../components/BackupBanner'
+import GoalCard from '../components/GoalCard'
+import { goalStatus, monthLimitWarnings } from '../lib/goals'
 import Tabs from '../components/Tabs'
 import InfoTip from '../components/InfoTip'
 import { tips } from '../lib/glossary'
@@ -93,6 +95,11 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
     }
   }, [rows, todayKey])
 
+  const goal = useMemo(
+    () => goalStatus(periods.month.net, monthCap?.goal ?? 0, monthCap?.maxLoss ?? 0, todayKey.slice(0, 7), todayKey),
+    [periods.month.net, monthCap?.goal, monthCap?.maxLoss, todayKey],
+  )
+
   const curve = useMemo(() => {
     // Cumulative net P&L (starts at 0): there is no account balance, only each month's fixed capital.
     let peak = 0
@@ -151,7 +158,7 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
   return (
     <div className="space-y-5">
       <BackupBanner count={rows.length} settings={settings} />
-      <RiskBanner warnings={warnings} title="Today's risk rules" />
+      <RiskBanner warnings={[...warnings, ...monthLimitWarnings(goal)]} title="Risk rules" />
 
       {/* Hero + win rate */}
       <div className="stagger grid gap-5 lg:grid-cols-3">
@@ -206,6 +213,8 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
         <Stat label="Max drawdown" info={<InfoTip {...tips.maxDrawdown(s.maxDrawdown)} />} icon={<IconDown />} value={inr(s.maxDrawdown)} className="text-down"
           sub="Largest peak-to-trough fall" spark={curve.map((p) => p.dd)} tone="down" />
       </div>
+
+      <GoalCard status={goal} monthLabel={new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' })} />
 
       {/* Performance (tabbed) + what needs attention */}
       <div className="grid gap-5 lg:grid-cols-3">

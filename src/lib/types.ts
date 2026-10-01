@@ -46,6 +46,9 @@ export interface Settings {
   rates: ChargeRates
   risk: RiskRules
   calculator: { capital: number; maxLoss: number } // defaults for the Calculator page (₹)
+  goals: { profit: number; maxLoss: number } // default monthly profit goal and loss limit in ₹ (0 = off)
+  monthGoal: Record<string, number> // profit goal typed for a month (YYYY-MM)
+  monthMaxLoss: Record<string, number> // loss limit typed for a month (YYYY-MM)
 }
 
 export interface ChargeBreakdown {
