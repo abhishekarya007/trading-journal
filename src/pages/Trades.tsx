@@ -8,7 +8,7 @@ import TradeDetail from '../components/TradeDetail'
 import Modal from '../components/Modal'
 import { inr, pnlColor } from '../lib/format'
 import PageTitle from '../components/PageTitle'
-import { IconPlus, IconSearch } from '../components/Icons'
+import { IconCopy, IconEdit, IconPlus, IconSearch, IconTrash } from '../components/Icons'
 import { summarize } from '../lib/stats'
 import { groupByDay } from '../lib/habits'
 import { toast } from '../lib/toast'
@@ -33,11 +33,12 @@ const num2 = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2
 const signed2 = (n: number) => (n > 0 ? '+' : '') + num2(n)
 const clock = (t?: string) => (t ? t.padStart(5, '0') : '')
 
-const HEAD: { label: string; w?: string; right?: boolean }[] = [
+const HEAD: { label: string; w?: string; right?: boolean; hide?: boolean }[] = [
   { label: 'Date', w: 'w-[1%]' }, { label: 'Symbol', w: 'w-[1%]' }, { label: 'Side', w: 'w-[1%]' }, { label: 'Time', w: 'w-[1%]' },
   { label: 'Qty', w: 'w-[1%]', right: true }, { label: 'Entry', w: 'w-[1%]', right: true }, { label: 'Exit', w: 'w-[1%]', right: true },
   { label: 'Charges ₹', w: 'w-[1%]', right: true }, { label: 'Net P&L ₹', w: 'w-[1%]', right: true }, { label: 'R', w: 'w-[1%]', right: true },
   { label: 'Setup' }, // takes the remaining width
+  { label: 'Actions', w: 'w-[1%]', right: true, hide: true },
 ]
 
 // One cell padding everywhere: 12px sides line the text up with the toolbar above; 8px top/bottom keeps rows thin but readable.
@@ -63,6 +64,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
   const [to, setTo] = useState('')
   const [quick, setQuick] = useState<Quick>('all')
   const [showFilters, setShowFilters] = useState(false)
+  const [menuFor, setMenuFor] = useState<number | null>(null) // phone list: which row's "⋯" menu is open
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [grouped, setGrouped] = useState(() => {
     try { return localStorage.getItem(GROUP_KEY) === '1' } catch { return false }
@@ -164,6 +166,12 @@ export default function Trades({ rows, settings, refresh }: Props) {
     setGrouped(v)
     try { localStorage.setItem(GROUP_KEY, v ? '1' : '0') } catch { /* ignore */ }
   }
+  useEffect(() => {
+    if (menuFor === null) return
+    const close = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[role=menu], [aria-haspopup=menu]')) setMenuFor(null) }
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [menuFor])
   const clearFilters = () => { setQ(''); setSetup(''); setFrom(''); setTo(''); setQuick('all') }
 
   const sideText = (t: Trade) => <span className={t.side === 'Long' ? 'text-up' : 'text-down'}>{t.side}</span>
@@ -179,7 +187,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
     <tr key={t.id} tabIndex={0} aria-label={`Open ${t.symbol} trade on ${t.date}`}
       className={`cursor-pointer transition-colors odd:bg-panel2/25 hover:!bg-accent/10 ${newDay ? 'border-t border-line' : ''}`}
       onClick={() => setDetailId(t.id!)}
-      onKeyDown={(e) => { if (e.key === 'Enter') setDetailId(t.id!) }}>
+      onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) setDetailId(t.id!) }}>
       <td className={`num whitespace-nowrap ${TD} text-muted`}>{t.date}</td>
       <td className={`whitespace-nowrap ${TD} font-semibold tracking-wide`}>{t.symbol}{flags(t)}</td>
       <td className={`whitespace-nowrap ${TD}`}>{sideText(t)}</td>
@@ -191,6 +199,13 @@ export default function Trades({ rows, settings, refresh }: Props) {
       <td className={`num ${TDR} text-right font-semibold ${pnlColor(res.net)}`}>{signed2(res.net)}</td>
       <td className={`num ${TDR} text-right ${res.rMultiple === null ? 'text-muted' : pnlColor(res.rMultiple)}`}>{res.rMultiple ?? '–'}</td>
       <td className={`whitespace-nowrap ${TD} text-muted`}>{t.setup}</td>
+      <td className="whitespace-nowrap py-1 pl-2 pr-3 text-right" onClick={(e) => e.stopPropagation()}>
+        <div className="inline-flex items-center">
+          <button type="button" className="rowbtn" title="Edit" aria-label={`Edit ${t.symbol} trade on ${t.date}`} onClick={() => openEdit(t)}><IconEdit /></button>
+          <button type="button" className="rowbtn" title="Duplicate" aria-label={`Duplicate ${t.symbol} trade on ${t.date}`} onClick={() => openDuplicate(t)}><IconCopy /></button>
+          <button type="button" className="rowbtn rowbtn-danger" title="Delete" aria-label={`Delete ${t.symbol} trade on ${t.date}`} onClick={() => remove(t.id!)}><IconTrash /></button>
+        </div>
+      </td>
     </tr>
   )
 
@@ -266,7 +281,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
               <table className="w-full text-[13px]">
                 <thead className="text-[11px] uppercase tracking-wider text-muted">
                   <tr className="border-b border-line">
-                    {HEAD.map((h) => <th key={h.label} className={`whitespace-nowrap py-2.5 font-medium ${h.w ?? ''} ${h.right ? 'pl-6 pr-3 text-right' : 'px-3 text-left'}`}>{h.label}</th>)}
+                    {HEAD.map((h) => <th key={h.label} className={`whitespace-nowrap py-2.5 font-medium ${h.w ?? ''} ${h.right ? 'pl-6 pr-3 text-right' : 'px-3 text-left'}`}>{h.hide ? <span className="sr-only">{h.label}</span> : h.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -296,7 +311,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
                     <td colSpan={7} className="px-3 py-2.5 text-xs text-muted">Total · {shown.length} {shown.length === 1 ? 'trade' : 'trades'} · {sum.winRate.toFixed(1)}% won</td>
                     <td className="num py-2.5 pl-6 pr-3 text-right text-muted">{num2(sum.charges)}</td>
                     <td className={`num py-2.5 pl-6 pr-3 text-right ${pnlColor(sum.net)}`}>{signed2(sum.net)}</td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>
@@ -305,18 +320,29 @@ export default function Trades({ rows, settings, refresh }: Props) {
             {/* Phone: compact list, no sideways scrolling */}
             <ul className="px-3 pb-3 md:hidden">
               {shown.map(({ trade: t, res }) => (
-                <li key={t.id}>
-                  <button type="button" onClick={() => setDetailId(t.id!)} aria-label={`Open ${t.symbol} trade on ${t.date}`}
-                    className="flex w-full items-center justify-between gap-3 border-b border-line/50 px-1 py-2.5 text-left">
-                    <div className="min-w-0">
-                      <div className="font-semibold tracking-wide">{t.symbol}{flags(t)} <span className="text-[11px] font-normal">{sideText(t)}</span></div>
-                      <div className="num truncate text-[11px] text-muted">{t.date}{t.entryTime ? ` ${clock(t.entryTime)}` : ''} · {t.qty} × {num2(t.entryPrice)} → {num2(t.exitPrice)}</div>
+                <li key={t.id} className="relative border-b border-line/50">
+                  <div className="flex items-center">
+                    <button type="button" onClick={() => setDetailId(t.id!)} aria-label={`Open ${t.symbol} trade on ${t.date}`}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-3 px-1 py-2.5 text-left">
+                      <div className="min-w-0">
+                        <div className="font-semibold tracking-wide">{t.symbol}{flags(t)} <span className="text-[11px] font-normal">{sideText(t)}</span></div>
+                        <div className="num truncate text-[11px] text-muted">{t.date}{t.entryTime ? ` ${clock(t.entryTime)}` : ''} · {t.qty} × {num2(t.entryPrice)} → {num2(t.exitPrice)}</div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className={`num font-semibold ${pnlColor(res.net)}`}>{signed2(res.net)}</div>
+                        <div className="num text-[11px] text-muted">{res.rMultiple !== null ? `${res.rMultiple}R` : t.setup}</div>
+                      </div>
+                    </button>
+                    <button type="button" className="rowbtn !h-9 !w-9 shrink-0 text-lg leading-none" aria-haspopup="menu" aria-expanded={menuFor === t.id}
+                      aria-label={`Actions for ${t.symbol} trade on ${t.date}`} onClick={() => setMenuFor(menuFor === t.id ? null : t.id!)}>⋯</button>
+                  </div>
+                  {menuFor === t.id && (
+                    <div role="menu" className="absolute right-1 top-11 z-20 w-44 overflow-hidden rounded-xl border border-line bg-panel py-1 shadow-2xl">
+                      <button role="menuitem" type="button" className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-panel2" onClick={() => { setMenuFor(null); openEdit(t) }}><IconEdit /> Edit</button>
+                      <button role="menuitem" type="button" className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-panel2" onClick={() => { setMenuFor(null); openDuplicate(t) }}><IconCopy /> Duplicate</button>
+                      <button role="menuitem" type="button" className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-down hover:bg-down/10" onClick={() => { setMenuFor(null); remove(t.id!) }}><IconTrash /> Delete</button>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div className={`num font-semibold ${pnlColor(res.net)}`}>{signed2(res.net)}</div>
-                      <div className="num text-[11px] text-muted">{res.rMultiple !== null ? `${res.rMultiple}R` : t.setup}</div>
-                    </div>
-                  </button>
+                  )}
                 </li>
               ))}
             </ul>

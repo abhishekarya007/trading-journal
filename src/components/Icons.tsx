@@ -25,3 +25,7 @@ export const IconDown = () => <svg {...base}><path d="M3 7l6 6 4-4 8 8" /><path 
 export const IconWallet = () => <svg {...base}><rect x="3" y="6" width="18" height="14" rx="2.5" /><path d="M16 13h2M3 10h18M6 6l9-3 2 3" /></svg>
 export const IconCalc = () => <svg {...base}><rect x="5" y="3" width="14" height="18" rx="2.5" /><path d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01" /></svg>
 export const IconReport = () => <svg {...base}><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></svg>
+const small = { ...base, width: 15, height: 15 }
+export const IconEdit = () => <svg {...small}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
+export const IconCopy = () => <svg {...small}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1" /></svg>
+export const IconTrash = () => <svg {...small}><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>

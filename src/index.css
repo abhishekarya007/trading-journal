@@ -204,3 +204,9 @@ table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%,
   .report-sheet tr { break-inside: avoid; }
   .report-sheet thead { display: table-header-group; }
 }
+
+/* Small icon buttons at the end of a table row */
+.rowbtn { display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; border-radius: 0.5rem; color: var(--muted); transition: background-color .15s, color .15s; }
+.rowbtn:hover, .rowbtn:focus-visible { background: var(--panel2); color: var(--fg); outline: none; }
+.rowbtn:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.rowbtn-danger:hover, .rowbtn-danger:focus-visible { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); }
