@@ -106,6 +106,8 @@ export function mergeSettings(current: Settings, incoming: Partial<Settings> | n
     monthCapital: { ...(incoming.monthCapital ?? {}), ...current.monthCapital },
     monthGoal: { ...(incoming.monthGoal ?? {}), ...current.monthGoal },
     monthMaxLoss: { ...(incoming.monthMaxLoss ?? {}), ...current.monthMaxLoss },
+    // Rules from the file that you don't already have are added; the ones you have stay exactly as they are.
+    rulebook: { rules: [...current.rulebook.rules, ...sanitizeRules(incoming.rulebook?.rules).filter((r) => !current.rulebook.rules.some((c) => c.id === r.id))] },
   }
 }
 

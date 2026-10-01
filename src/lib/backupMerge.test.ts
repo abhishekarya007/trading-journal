@@ -132,3 +132,21 @@ describe('screenshots in backups', () => {
     expect(parseBackup(JSON.stringify({ trades: [t()] }))).toMatchObject({ screenshotCount: 0, lite: false }) // older files: no flag
   })
 })
+
+describe('the rulebook in backups', () => {
+  const rule = (id: string, n = 5) => ({ id, type: 'maxTrades' as const, enabled: true, params: { n } })
+  it('travels inside the settings of a backup file', () => {
+    const file = JSON.stringify({ trades: [], settings: { ...DEFAULT_SETTINGS, rulebook: { rules: [rule('a', 3)] } } })
+    expect(normalizeSettings(parseBackup(file).settings).rulebook.rules).toEqual([rule('a', 3)])
+  })
+  it('adding a backup brings over the rules you do not have, and keeps yours as they are', () => {
+    const mine = { ...DEFAULT_SETTINGS, rulebook: { rules: [rule('a', 9)] } }
+    const merged = mergeSettings(mine, { rulebook: { rules: [rule('a', 3), rule('b', 4)] } })
+    expect(merged.rulebook.rules.map((r) => [r.id, r.params.n])).toEqual([['a', 9], ['b', 4]])
+    expect(mergeSettings(DEFAULT_SETTINGS, { rulebook: { rules: [rule('x')] } }).rulebook.rules).toHaveLength(1) // a fresh computer
+  })
+  it('ignores junk rules in a file', () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, { rulebook: { rules: [{ id: 'z', type: 'nonsense' }, null] as never } })
+    expect(merged.rulebook.rules).toEqual([])
+  })
+})
