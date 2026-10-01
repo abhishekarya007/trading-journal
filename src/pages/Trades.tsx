@@ -17,6 +17,7 @@ import { savedOutcome } from '../lib/tradeEvents'
 import { calcTrade } from '../lib/calc'
 import { readCooldown, remainingMs, startCooldown } from '../lib/cooldown'
 import { downloadText, tradesToCsv } from '../lib/csv'
+import { holdMinutes } from '../lib/insights'
 import { duplicateTemplate } from '../lib/tradeText'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
 
@@ -40,18 +41,24 @@ const num2 = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2
 const signed2 = (n: number) => (n > 0 ? '+' : '') + num2(n)
 const clock = (t?: string) => (t ? t.padStart(5, '0') : '')
 
-const HEAD: { label: string; w?: string; right?: boolean; hide?: boolean }[] = [
-  { label: 'Date', w: 'w-[1%]' }, { label: 'Symbol', w: 'w-[1%]' }, { label: 'Side', w: 'w-[1%]' }, { label: 'Time', w: 'w-[1%]' },
-  { label: 'Qty', w: 'w-[1%]', right: true }, { label: 'Entry', w: 'w-[1%]', right: true }, { label: 'Exit', w: 'w-[1%]', right: true },
-  { label: 'Charges ₹', w: 'w-[1%]', right: true }, { label: 'Net P&L ₹', w: 'w-[1%]', right: true }, { label: 'R', w: 'w-[1%]', right: true },
-  { label: 'Setup' }, // takes the remaining width
+const HOLD_CLS = 'hidden @min-[1180px]:table-cell'
+const MID_CLS = 'hidden @min-[860px]:table-cell' // Time and R are the first to go when the table is narrow
+
+// `cls` shows a column only when the table itself is wide enough (it depends on whether the menu is collapsed), so nothing ever scrolls sideways for the sake of an extra column.
+const HEAD: { label: string; w?: string; right?: boolean; hide?: boolean; cls?: string }[] = [
+  { label: 'Date' }, { label: 'Symbol' }, { label: 'Side' }, { label: 'Time', cls: MID_CLS },
+  { label: 'Qty', right: true }, { label: 'Entry', right: true }, { label: 'Exit', right: true },
+  { label: 'Charges ₹', right: true }, { label: 'Net P&L ₹', right: true }, { label: 'R', right: true, cls: MID_CLS },
+  { label: 'Hold', right: true, cls: HOLD_CLS },
+  { label: 'Setup' },
   { label: 'Actions', w: 'w-[1%]', right: true, hide: true },
 ]
 
 // One cell padding everywhere: 12px sides line the text up with the toolbar above; 8px top/bottom keeps rows thin but readable.
-const TD = 'px-3 py-2'
+// Roomier on wide tables (menu collapsed or a big screen), tighter when space is short, so the action buttons never fall off the edge.
+const TD = 'px-2 py-3 @min-[1050px]:px-2.5 @min-[1250px]:px-4 @min-[1250px]:py-3.5'
 // Numeric columns get extra room on their left so neighbouring numbers never run together.
-const TDR = 'py-2 pl-6 pr-3'
+const TDR = 'py-3 pl-3 pr-2 @min-[1050px]:pl-4 @min-[1050px]:pr-2.5 @min-[1250px]:py-3.5 @min-[1250px]:pl-6 @min-[1250px]:pr-4'
 
 function dayLabel(date: string, today: string) {
   if (date === today) return 'Today'
@@ -211,24 +218,30 @@ export default function Trades({ rows, settings, refresh }: Props) {
     </>
   )
 
+  const hold = (t: Trade) => { const m = holdMinutes(t); return m === null ? '–' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m` }
+
+  // In the By-day view the band above already says which day it is, so the Date column is left out.
+  const cols = grouped ? HEAD.filter((h) => h.label !== 'Date') : HEAD
+
   // One thin line per trade, every column visible.
   const tradeRow = ({ trade: t, res }: Row, newDay: boolean) => (
     <tr key={t.id} tabIndex={0} aria-label={`Open ${t.symbol} trade on ${t.date}`}
-      className={`cursor-pointer transition-colors odd:bg-panel2/25 hover:!bg-accent/10 ${newDay ? 'border-t border-line' : ''}`}
+      className={`cursor-pointer hover:!bg-transparent hover:[&>td]:bg-accent/15 [&>td:first-child]:rounded-l-xl [&>td:last-child]:rounded-r-xl ${newDay ? 'border-t border-line' : ''}`}
       onClick={() => setDetailId(t.id!)}
       onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) setDetailId(t.id!) }}>
-      <td className={`num whitespace-nowrap ${TD} text-muted`}>{t.date}</td>
+      {!grouped && <td className={`num whitespace-nowrap ${TD} text-muted`}>{t.date}</td>}
       <td className={`whitespace-nowrap ${TD} font-semibold tracking-wide`}>{t.symbol}{flags(t)}</td>
       <td className={`whitespace-nowrap ${TD}`}>{sideText(t)}</td>
-      <td className={`num whitespace-nowrap ${TD} text-muted`}>{clock(t.entryTime) || '–'}</td>
+      <td className={`num whitespace-nowrap ${TD} ${MID_CLS} text-muted`}>{clock(t.entryTime) || '–'}</td>
       <td className={`num ${TDR} text-right`}>{t.qty}</td>
       <td className={`num ${TDR} text-right`}>{num2(t.entryPrice)}</td>
       <td className={`num ${TDR} text-right`}>{num2(t.exitPrice)}</td>
       <td className={`num ${TDR} text-right text-muted`}>{num2(res.charges.total)}</td>
       <td className={`num ${TDR} text-right font-semibold ${pnlColor(res.net)}`}>{signed2(res.net)}</td>
-      <td className={`num ${TDR} text-right ${res.rMultiple === null ? 'text-muted' : pnlColor(res.rMultiple)}`}>{res.rMultiple ?? '–'}</td>
+      <td className={`num ${TDR} ${MID_CLS} text-right ${res.rMultiple === null ? 'text-muted' : pnlColor(res.rMultiple)}`}>{res.rMultiple ?? '–'}</td>
+      <td className={`num ${TDR} ${HOLD_CLS} text-right text-muted`}>{hold(t)}</td>
       <td className={`whitespace-nowrap ${TD} text-muted`}>{t.setup}</td>
-      <td className="whitespace-nowrap py-1 pl-2 pr-3 text-right" onClick={(e) => e.stopPropagation()}>
+      <td className="whitespace-nowrap py-1 pl-2 pr-1 text-right @min-[1050px]:pl-3 @min-[1050px]:pr-2 @min-[1250px]:pl-6 @min-[1250px]:pr-3" onClick={(e) => e.stopPropagation()}>
         <div className="inline-flex items-center">
           <button type="button" className="rowbtn" title="Edit" aria-label={`Edit ${t.symbol} trade on ${t.date}`} onClick={() => openEdit(t)}><IconEdit /></button>
           <button type="button" className="rowbtn" title="Duplicate" aria-label={`Duplicate ${t.symbol} trade on ${t.date}`} onClick={() => openDuplicate(t)}><IconCopy /></button>
@@ -307,11 +320,11 @@ export default function Trades({ rows, settings, refresh }: Props) {
         ) : (
           <>
             {/* Desktop / tablet: dense spreadsheet */}
-            <div className="hidden overflow-x-auto pb-3 md:block md:px-2">
-              <table className="w-full text-[13px]">
+            <div className="@container hidden overflow-x-auto pb-4 md:block md:px-5">
+              <table className={`w-full text-[13px] @min-[1250px]:text-sm [&_tr>*:last-child]:pr-0 ${grouped ? '[&_tr>*:first-child]:pl-[2.4rem] [&_tr.day-row>*:first-child]:pl-0' : '[&_tr>*:first-child]:pl-1'}`}>
                 <thead className="text-[11px] uppercase tracking-wider text-muted">
                   <tr className="border-b border-line">
-                    {HEAD.map((h) => <th key={h.label} className={`whitespace-nowrap py-2.5 font-medium ${h.w ?? ''} ${h.right ? 'pl-6 pr-3 text-right' : 'px-3 text-left'}`}>{h.hide ? <span className="sr-only">{h.label}</span> : h.label}</th>)}
+                    {cols.map((h) => <th key={h.label} className={`whitespace-nowrap py-3 font-medium ${h.cls ?? ''} ${h.w ?? ''} ${h.right ? 'pl-3 pr-2 text-right @min-[1050px]:pl-4 @min-[1050px]:pr-2.5 @min-[1250px]:pl-6 @min-[1250px]:pr-4' : 'px-2 text-left @min-[1050px]:px-2.5 @min-[1250px]:px-4'}`}>{h.hide ? <span className="sr-only">{h.label}</span> : h.label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -320,9 +333,11 @@ export default function Trades({ rows, settings, refresh }: Props) {
                       const open = !collapsed.has(day.date)
                       return (
                         <Fragment key={day.date}>
-                          <tr className="day-row cursor-pointer border-t border-line bg-panel2/60" onClick={() => toggleDay(day.date)}>
-                            <td colSpan={HEAD.length} className="px-3 py-1.5">
-                              <div className="flex items-center gap-3 text-xs">
+                          {/* A gap above each day, then the day as a soft grey band with room inside it */}
+                          <tr aria-hidden="true"><td colSpan={cols.length} className="h-4 p-0" /></tr>
+                          <tr className="day-row cursor-pointer" onClick={() => toggleDay(day.date)}>
+                            <td colSpan={cols.length} className="p-0">
+                              <div className="flex items-center gap-3 rounded-xl bg-panel2 px-3.5 py-3 text-sm">
                                 <span className={`inline-block w-3 text-muted transition ${open ? 'rotate-90' : ''}`}>›</span>
                                 <span className="font-semibold">{dayLabel(day.date, today)}</span>
                                 <span className="text-muted">{day.count} {day.count === 1 ? 'trade' : 'trades'}</span>
@@ -338,10 +353,10 @@ export default function Trades({ rows, settings, refresh }: Props) {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-line font-semibold">
-                    <td colSpan={7} className="px-3 py-2.5 text-xs text-muted">Total · {shown.length} {shown.length === 1 ? 'trade' : 'trades'} · {sum.winRate.toFixed(1)}% won</td>
-                    <td className="num py-2.5 pl-6 pr-3 text-right text-muted">{num2(sum.charges)}</td>
-                    <td className={`num py-2.5 pl-6 pr-3 text-right ${pnlColor(sum.net)}`}>{signed2(sum.net)}</td>
-                    <td colSpan={3} />
+                    <td colSpan={grouped ? 6 : 7} className={`${TD} text-xs text-muted`}>Total · {shown.length} {shown.length === 1 ? 'trade' : 'trades'} · {sum.winRate.toFixed(1)}% won</td>
+                    <td className={`num ${TDR} text-right text-muted`}>{num2(sum.charges)}</td>
+                    <td className={`num ${TDR} text-right ${pnlColor(sum.net)}`}>{signed2(sum.net)}</td>
+                    <td colSpan={4} />
                   </tr>
                 </tfoot>
               </table>
