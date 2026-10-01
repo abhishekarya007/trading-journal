@@ -79,7 +79,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
   const [quick, setQuick] = useState<Quick>('all')
   const [showFilters, setShowFilters] = useState(false)
   const [menuFor, setMenuFor] = useState<number | null>(null) // phone list: which row's "⋯" menu is open
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [openDay, setOpenDay] = useState<string | null>(null) // By day: every day starts closed, and opening one closes the other
   const [grouped, setGrouped] = useState(() => {
     try { return localStorage.getItem(GROUP_KEY) === '1' } catch { return false }
   })
@@ -189,9 +189,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
     })
   }
 
-  const toggleDay = (date: string) =>
-    setCollapsed((c) => { const n = new Set(c); if (n.has(date)) n.delete(date); else n.add(date); return n })
-  const allCollapsed = days.length > 0 && days.every((d) => collapsed.has(d.date))
+  const toggleDay = (date: string) => setOpenDay((d) => (d === date ? null : date))
   const setGroupedPref = (v: boolean) => {
     setGrouped(v)
     try { localStorage.setItem(GROUP_KEY, v ? '1' : '0') } catch { /* ignore */ }
@@ -224,9 +222,9 @@ export default function Trades({ rows, settings, refresh }: Props) {
   const cols = grouped ? HEAD.filter((h) => h.label !== 'Date') : HEAD
 
   // One thin line per trade, every column visible.
-  const tradeRow = ({ trade: t, res }: Row, newDay: boolean) => (
+  const tradeRow = ({ trade: t, res }: Row, divider: boolean) => (
     <tr key={t.id} tabIndex={0} aria-label={`Open ${t.symbol} trade on ${t.date}`}
-      className={`cursor-pointer hover:!bg-transparent hover:[&>td]:bg-accent/15 [&>td:first-child]:rounded-l-xl [&>td:last-child]:rounded-r-xl ${newDay ? 'border-t border-line' : ''}`}
+      className={`cursor-pointer hover:!bg-transparent hover:[&>td]:bg-accent/15 [&>td:first-child]:rounded-l-xl [&>td:last-child]:rounded-r-xl ${divider ? 'border-t border-line' : ''}`}
       onClick={() => setDetailId(t.id!)}
       onKeyDown={(e) => { if (e.key === 'Enter' && e.target === e.currentTarget) setDetailId(t.id!) }}>
       {!grouped && <td className={`num whitespace-nowrap ${TD} text-muted`}>{t.date}</td>}
@@ -298,11 +296,6 @@ export default function Trades({ rows, settings, refresh }: Props) {
                 {' · '}Charges <b className="num text-fg">{inr(sum.charges)}</b>
               </p>
               <div className="hidden items-center gap-2 md:flex">
-                {grouped && (
-                  <button type="button" className="btn-ghost !px-2.5 !py-1 text-xs" onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(days.map((d) => d.date)))}>
-                    {allCollapsed ? 'Expand days' : 'Collapse days'}
-                  </button>
-                )}
                 <div className="seg" role="group" aria-label="Group trades by day">
                   <button aria-pressed={!grouped} onClick={() => setGroupedPref(false)}>List</button>
                   <button aria-pressed={grouped} onClick={() => setGroupedPref(true)}>By day</button>
@@ -330,12 +323,13 @@ export default function Trades({ rows, settings, refresh }: Props) {
                 <tbody>
                   {grouped
                     ? days.map((day) => {
-                      const open = !collapsed.has(day.date)
+                      const open = openDay === day.date
                       return (
                         <Fragment key={day.date}>
                           {/* A gap above each day, then the day as a soft grey band with room inside it */}
                           <tr aria-hidden="true"><td colSpan={cols.length} className="h-4 p-0" /></tr>
-                          <tr className="day-row cursor-pointer" onClick={() => toggleDay(day.date)}>
+                          <tr className="day-row cursor-pointer" tabIndex={0} aria-expanded={open} onClick={() => toggleDay(day.date)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDay(day.date) } }}>
                             <td colSpan={cols.length} className="p-0">
                               <div className="flex items-center gap-3 rounded-xl bg-panel2 px-3.5 py-3 text-sm">
                                 <span className={`inline-block w-3 text-muted transition ${open ? 'rotate-90' : ''}`}>›</span>
@@ -345,11 +339,11 @@ export default function Trades({ rows, settings, refresh }: Props) {
                               </div>
                             </td>
                           </tr>
-                          {open && day.rows.map((r) => tradeRow(r, false))}
+                          {open && day.rows.map((r, i) => tradeRow(r, i > 0))}
                         </Fragment>
                       )
                     })
-                    : shown.map((r, i) => tradeRow(r, i > 0 && shown[i - 1].trade.date !== r.trade.date))}
+                    : shown.map((r, i) => tradeRow(r, i > 0))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-line font-semibold">
