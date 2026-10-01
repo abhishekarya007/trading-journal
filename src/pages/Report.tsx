@@ -21,7 +21,7 @@ const num2 = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2
 const sgn = (n: number) => (n > 0 ? '+' : '') + inr(n)
 const tone = (n: number) => (n > 0 ? 'text-up' : n < 0 ? 'text-down' : 'text-muted')
 const monthName = (key: string) => { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' }) }
-const AXIS = { fontSize: 10, fill: '#5b6579' }
+const AXIS = { fontSize: 10, fill: 'var(--muted)' }
 
 function Kpi({ label, value, sub, className = '' }: { label: string; value: ReactNode; sub?: ReactNode; className?: string }) {
   return (
@@ -172,20 +172,20 @@ export default function Report({ rows, settings }: Props) {
               <div>
                 <H>Cumulative P&amp;L</H>
                 <AreaChart width={400} height={150} data={d.curve} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="#e5e9f0" vertical={false} />
+                  <CartesianGrid stroke="var(--line)" vertical={false} />
                   <XAxis dataKey="i" tick={AXIS} tickLine={false} axisLine={false} hide={d.curve.length > 40} />
                   <YAxis tick={AXIS} width={46} tickLine={false} axisLine={false} tickFormatter={(v) => (Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))} />
-                  <ReferenceLine y={0} stroke="#9aa4b5" />
-                  <Area dataKey="v" stroke="#2563eb" strokeWidth={2} fill="#2563eb" fillOpacity={0.12} isAnimationActive={false} />
+                  <ReferenceLine y={0} stroke="var(--muted)" />
+                  <Area dataKey="v" stroke="var(--accent)" strokeWidth={2} fill="var(--accent)" fillOpacity={0.12} isAnimationActive={false} />
                 </AreaChart>
               </div>
               <div>
                 <H>P&amp;L by day</H>
                 <BarChart width={270} height={150} data={d.days.map((x) => ({ n: x.date.slice(8), net: Math.round(x.net) }))} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="#e5e9f0" vertical={false} />
+                  <CartesianGrid stroke="var(--line)" vertical={false} />
                   <XAxis dataKey="n" tick={AXIS} tickLine={false} axisLine={false} interval={0} hide={d.days.length > 22} />
                   <YAxis tick={AXIS} width={42} tickLine={false} axisLine={false} />
-                  <ReferenceLine y={0} stroke="#9aa4b5" />
+                  <ReferenceLine y={0} stroke="var(--muted)" />
                   <Bar dataKey="net" radius={[2, 2, 2, 2]} isAnimationActive={false}>
                     {d.days.map((x) => <Cell key={x.date} fill={x.net >= 0 ? COLORS.up : COLORS.down} />)}
                   </Bar>

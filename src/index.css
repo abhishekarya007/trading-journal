@@ -194,11 +194,14 @@ table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%,
   * { transition: none !important; }
 }
 
-/* ---- Report: a light, paper-style sheet that prints / saves as PDF whatever theme the app is in ---- */
-.report-sheet {
-  --bg: #ffffff; --panel: #ffffff; --panel2: #f3f5f9; --line: #d9dee8; --fg: #0f172a; --muted: #5b6579;
-  --accent: #2563eb; --up: #0a8f5f; --down: #d02446; --warn: #b4690e; --card: #ffffff;
-  background: #ffffff; color: var(--fg); color-scheme: light;
+/* ---- Report: follows the app theme on screen, and switches to a white sheet when printed / saved as PDF ---- */
+.report-sheet { background: var(--panel); color: var(--fg); }
+@media print {
+  .report-sheet {
+    --bg: #ffffff; --panel: #ffffff; --panel2: #f3f5f9; --line: #d9dee8; --fg: #0f172a; --muted: #5b6579;
+    --accent: #2563eb; --up: #0a8f5f; --down: #d02446; --warn: #b4690e; --card: #ffffff;
+    background: #ffffff; color: var(--fg); color-scheme: light;
+  }
 }
 @page { size: A4; margin: 12mm; }
 @media print {
