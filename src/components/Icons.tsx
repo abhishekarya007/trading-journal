@@ -29,3 +29,5 @@ const small = { ...base, width: 15, height: 15 }
 export const IconEdit = () => <svg {...small}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" /></svg>
 export const IconCopy = () => <svg {...small}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1" /></svg>
 export const IconTrash = () => <svg {...small}><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>
+export const IconChevLeft = () => <svg {...small}><path d="M15 6l-6 6 6 6" /></svg>
+export const IconChevRight = () => <svg {...small}><path d="M9 6l6 6-6 6" /></svg>

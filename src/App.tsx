@@ -23,7 +23,7 @@ import { backupStatus, downloadBackup, requestStorageProtection, useBackupInfo }
 import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
 import {
-  IconCalc, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
+  IconCalc, IconChevLeft, IconChevRight, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
 } from './components/Icons'
 
 const links: { to: string; label: string; Icon: () => ReactElement; desktopOnly?: boolean }[] = [
@@ -50,6 +50,11 @@ export default function App() {
   const [settings, saveSettings] = useSettings()
   const { trades, loading, refresh } = useTrades()
   const [palette, setPalette] = useState(false)
+  // The sidebar can shrink to an icons-only rail to give pages more room. The choice is remembered.
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('tj-sidebar') === '1' } catch { return false } })
+  const toggleSidebar = useCallback(() => {
+    setCollapsed((c) => { try { localStorage.setItem('tj-sidebar', c ? '0' : '1') } catch { /* ignore */ } return !c })
+  }, [])
   const backupInfo = useBackupInfo()
   const autoTried = useRef(false)
   const protectTried = useRef(false)
@@ -92,10 +97,11 @@ export default function App() {
       if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || document.querySelector('[role=dialog]')) return
       if (e.key === 'n') { e.preventDefault(); addTrade() }
       else if (e.key === '/') { e.preventDefault(); setPalette(true) }
+      else if (e.key === '[') { e.preventDefault(); toggleSidebar() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [addTrade])
+  }, [addTrade, toggleSidebar])
 
   const ticker: Tick[] = useMemo(() => {
     if (!rows.length) return []
@@ -129,12 +135,13 @@ export default function App() {
     const symbols = [...new Set(trades.map((t) => t.symbol))].sort()
     return [
       { id: 'add', group: 'Actions', label: 'Add a new trade', hint: 'N', icon: <IconPlus />, run: addTrade },
+      { id: 'sidebar', group: 'Actions', label: collapsed ? 'Expand the menu' : 'Collapse the menu to icons', hint: '[', icon: collapsed ? <IconChevRight /> : <IconChevLeft />, run: toggleSidebar },
       { id: 'theme', group: 'Actions', label: `Switch to ${dark ? 'light' : 'dark'} theme`, icon: dark ? <IconSun /> : <IconMoon />, run: () => setDark((d) => !d) },
       ...links.map((l) => ({ id: `nav${l.to}`, group: 'Go to', label: l.label, icon: <l.Icon />, run: go(l.to) })),
       ...INSIGHT_TABS.filter((t) => t.id !== 'overview').map((t) => ({ id: `ins${t.id}`, group: 'Go to', label: `Insights › ${t.label}`, icon: <IconInsights />, run: () => navigate(`/insights?tab=${t.id}`) })),
       ...symbols.map((s) => ({ id: `sym${s}`, group: 'Symbols', label: `${s} trades`, icon: <span className="text-[10px] font-bold">{s.slice(0, 2)}</span>, run: go('/trades', { q: s }) })),
     ]
-  }, [trades, dark, addTrade, navigate])
+  }, [trades, dark, addTrade, navigate, collapsed, toggleSidebar])
 
   // Trades saved before the app became intraday-only.
   const legacy = trades.filter((t) => (t as { type?: string }).type === 'Delivery')
@@ -154,37 +161,53 @@ export default function App() {
   )
 
   return (
-    <div className="app-shell min-h-screen md:pl-64">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line/70 bg-panel/55 p-4 backdrop-blur-2xl md:flex">
-        <div className="mb-5 flex items-center gap-3 px-1">
+    <div className={`app-shell min-h-screen transition-[padding] duration-200 ${collapsed ? 'md:pl-[4.75rem]' : 'md:pl-64'}`}>
+      {/* Desktop sidebar (collapses to icons) */}
+      <aside className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line/70 bg-panel/55 backdrop-blur-2xl transition-[width] duration-200 md:flex ${collapsed ? 'w-[4.75rem] p-3' : 'w-64 p-4'}`}>
+        <div className={`mb-5 flex items-center ${collapsed ? 'flex-col gap-3' : 'gap-3 px-1'}`}>
           <IconLogo />
-          <div className="leading-tight">
-            <div className="font-display text-[15px] font-semibold tracking-tight">Trade<span className="text-brand">Desk</span></div>
-            <div className="text-[11px] text-muted">NSE intraday journal</div>
-          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="font-display text-[15px] font-semibold tracking-tight">Trade<span className="text-brand">Desk</span></div>
+              <div className="text-[11px] text-muted">NSE intraday journal</div>
+            </div>
+          )}
+          <button type="button" className="rowbtn shrink-0" onClick={toggleSidebar} aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand the menu' : 'Collapse the menu to icons'} title={`${collapsed ? 'Expand' : 'Collapse'} the menu  ( [ )`}>
+            {collapsed ? <IconChevRight /> : <IconChevLeft />}
+          </button>
         </div>
 
-        <button className="btn mb-2 w-full !justify-between" onClick={addTrade}>
-          <span className="flex items-center gap-2"><IconPlus /> New trade</span>
-          <span className="rounded-md bg-white/20 px-1.5 font-mono text-[10px]">N</span>
-        </button>
-        <button onClick={() => setPalette(true)} className="mb-5 flex w-full items-center gap-2 rounded-xl border border-line bg-panel2/50 px-3 py-2 text-sm text-muted transition hover:border-accent/50 hover:text-fg">
-          <IconSearch /> <span className="flex-1 text-left">Search…</span> <span className="kbd">⌘K</span>
-        </button>
+        {collapsed ? (
+          <>
+            <button className="btn mb-2 !h-11 w-full !px-0" onClick={addTrade} title="New trade  ( N )" aria-label="New trade"><IconPlus /></button>
+            <button onClick={() => setPalette(true)} title="Search  ( ⌘K )" aria-label="Search"
+              className="mb-5 flex h-11 w-full items-center justify-center rounded-xl border border-line bg-panel2/50 text-muted transition hover:border-accent/50 hover:text-fg"><IconSearch /></button>
+          </>
+        ) : (
+          <>
+            <button className="btn mb-2 w-full !justify-between" onClick={addTrade}>
+              <span className="flex items-center gap-2"><IconPlus /> New trade</span>
+              <span className="rounded-md bg-white/20 px-1.5 font-mono text-[10px]">N</span>
+            </button>
+            <button onClick={() => setPalette(true)} className="mb-5 flex w-full items-center gap-2 rounded-xl border border-line bg-panel2/50 px-3 py-2 text-sm text-muted transition hover:border-accent/50 hover:text-fg">
+              <IconSearch /> <span className="flex-1 text-left">Search…</span> <span className="kbd">⌘K</span>
+            </button>
+            <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted/80">Menu</div>
+          </>
+        )}
 
-        <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted/80">Menu</div>
         <nav className="flex flex-1 flex-col gap-1">
           {links.map(({ to, label, Icon }) => (
-            <NavLink key={to} to={to} end={to === '/'}
+            <NavLink key={to} to={to} end={to === '/'} aria-label={label} title={collapsed ? label : undefined}
               className={({ isActive }) =>
-                `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${isActive
+                `group relative flex items-center rounded-xl py-2.5 text-sm transition ${collapsed ? 'justify-center px-0' : 'gap-3 px-3'} ${isActive
                   ? 'bg-gradient-to-r from-accent/20 to-accent/0 font-medium text-fg'
                   : 'text-muted hover:bg-panel2/70 hover:text-fg'}`}>
               {({ isActive }) => (
                 <>
-                  {isActive && <span className="absolute -left-4 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_14px_var(--accent)]" />}
-                  <span className={isActive ? 'text-accent' : ''}><Icon /></span> {label}
+                  {isActive && <span className={`absolute top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_14px_var(--accent)] ${collapsed ? '-left-3' : '-left-4'}`} />}
+                  <span className={isActive ? 'text-accent' : ''}><Icon /></span>{!collapsed && <> {label}</>}
                 </>
               )}
             </NavLink>
@@ -192,24 +215,31 @@ export default function App() {
         </nav>
 
         <div className="space-y-3">
-          <div className="relative overflow-hidden rounded-2xl border border-line bg-panel2/60 p-3.5">
-            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl"
-              style={{ background: `color-mix(in srgb, var(${today.net >= 0 ? '--up' : '--down'}) 30%, transparent)` }} />
-            <div className="label !mb-1">Today</div>
-            <div className={`num text-2xl font-semibold ${pnlColor(today.net)} ${today.net > 0 ? 'glow-up' : today.net < 0 ? 'glow-down' : ''}`}>
-              <AnimatedNumber value={today.net} format={signed} />
+          {collapsed ? (
+            <div className="rounded-xl border border-line bg-panel2/60 px-1 py-2 text-center" title={`Today: ${signed(today.net)} · ${today.count} ${today.count === 1 ? 'trade' : 'trades'}`}>
+              <div className="text-[9px] uppercase tracking-wider text-muted">Today</div>
+              <div className={`num truncate text-[10px] font-semibold tracking-tight ${pnlColor(today.net)}`}>{signed(today.net)}</div>
             </div>
-            <div className="mt-1 text-xs text-muted">{today.count} {today.count === 1 ? 'trade' : 'trades'}{today.count ? ` · ${today.winRate.toFixed(0)}% win` : ''}</div>
-            {today.count > 0 && (
-              <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-down/40">
-                <div className="h-full rounded-full bg-up" style={{ width: `${today.winRate}%` }} />
+          ) : (
+            <div className="relative overflow-hidden rounded-2xl border border-line bg-panel2/60 p-3.5">
+              <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl"
+                style={{ background: `color-mix(in srgb, var(${today.net >= 0 ? '--up' : '--down'}) 30%, transparent)` }} />
+              <div className="label !mb-1">Today</div>
+              <div className={`num text-2xl font-semibold ${pnlColor(today.net)} ${today.net > 0 ? 'glow-up' : today.net < 0 ? 'glow-down' : ''}`}>
+                <AnimatedNumber value={today.net} format={signed} />
               </div>
-            )}
-          </div>
-          <BackupBadge count={trades.length} settings={settings} />
-          <div className="flex items-center justify-between">
+              <div className="mt-1 text-xs text-muted">{today.count} {today.count === 1 ? 'trade' : 'trades'}{today.count ? ` · ${today.winRate.toFixed(0)}% win` : ''}</div>
+              {today.count > 0 && (
+                <div className="mt-2.5 flex h-1.5 overflow-hidden rounded-full bg-down/40">
+                  <div className="h-full rounded-full bg-up" style={{ width: `${today.winRate}%` }} />
+                </div>
+              )}
+            </div>
+          )}
+          <BackupBadge count={trades.length} settings={settings} compact={collapsed} />
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
             {themeBtn}
-            <span className="text-[11px] text-muted">v1 · local only</span>
+            {!collapsed && <span className="text-[11px] text-muted">v1 · local only</span>}
           </div>
         </div>
       </aside>
@@ -226,7 +256,7 @@ export default function App() {
 
       <Ticker items={ticker} />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 md:px-8 md:py-8 md:pb-12">
+      <main className={`mx-auto px-4 py-6 pb-28 md:px-8 md:py-8 md:pb-12 ${collapsed ? 'max-w-[1600px]' : 'max-w-7xl'}`}>
         {legacy.length > 0 && (
           <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-warn/50 bg-warn/10 p-3 text-sm">
             <span>{legacy.length} saved trade(s) were marked Delivery. This app is now intraday-only, so their charges are calculated as intraday and will be wrong.</span>

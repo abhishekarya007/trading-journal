@@ -6,7 +6,7 @@ import { toast } from '../lib/toast'
 const DOT: Record<BackupState, string> = { empty: 'bg-muted/50', never: 'bg-down', ok: 'bg-up', due: 'bg-warn', overdue: 'bg-down' }
 
 /** Small status card for the sidebar: how fresh your last backup is, with a one-click backup. */
-export default function BackupBadge({ count, settings }: { count: number; settings: Settings }) {
+export default function BackupBadge({ count, settings, compact }: { count: number; settings: Settings; compact?: boolean }) {
   const info = useBackupInfo()
   const [busy, setBusy] = useState(false)
   const st = backupStatus(count, info, Date.now())
@@ -17,6 +17,15 @@ export default function BackupBadge({ count, settings }: { count: number; settin
     setBusy(false)
   }
 
+  if (compact) {
+    const tip = st.state === 'empty' ? 'Nothing to back up yet' : `${st.state === 'never' ? 'Not backed up yet' : `Backed up ${agoText(st.days)}`}${st.newSince > 0 ? `, ${st.newSince} trade${st.newSince === 1 ? '' : 's'} not saved` : ''}. Click to back up now.`
+    return (
+      <button type="button" onClick={run} disabled={busy || st.state === 'empty'} title={tip} aria-label={tip}
+        className="mx-auto flex h-11 w-full items-center justify-center rounded-xl border border-line bg-panel2/50 transition hover:border-accent/50 disabled:opacity-60">
+        <span className={`h-2.5 w-2.5 rounded-full ${DOT[st.state]}`} aria-hidden="true" />
+      </button>
+    )
+  }
   const headline = st.state === 'empty' ? 'Backup' : st.state === 'never' ? 'Not backed up yet' : `Backed up ${agoText(st.days)}`
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-line bg-panel2/50 px-3 py-2">
