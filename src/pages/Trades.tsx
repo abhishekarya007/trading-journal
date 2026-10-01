@@ -18,6 +18,8 @@ import { calcTrade } from '../lib/calc'
 import { readCooldown, remainingMs, startCooldown } from '../lib/cooldown'
 import { downloadText, tradesToCsv } from '../lib/csv'
 import { holdMinutes } from '../lib/insights'
+import { clampPage, DAY_SIZES, LIST_SIZES, pageSlice } from '../lib/paginate'
+import Pagination from '../components/Pagination'
 import { duplicateTemplate } from '../lib/tradeText'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
 
@@ -37,6 +39,11 @@ const QUICK: { id: Quick; label: string }[] = [
 ]
 
 const GROUP_KEY = 'tj-grouped'
+const SIZE_KEY = 'tj-page-size'
+const DAY_SIZE_KEY = 'tj-page-days'
+const savedSize = (key: string, allowed: readonly number[], fallback: number) => {
+  try { const n = Number(localStorage.getItem(key)); return allowed.includes(n) ? n : fallback } catch { return fallback }
+}
 const num2 = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const signed2 = (n: number) => (n > 0 ? '+' : '') + num2(n)
 const clock = (t?: string) => (t ? t.padStart(5, '0') : '')
@@ -79,6 +86,9 @@ export default function Trades({ rows, settings, refresh }: Props) {
   const [quick, setQuick] = useState<Quick>('all')
   const [showFilters, setShowFilters] = useState(false)
   const [menuFor, setMenuFor] = useState<number | null>(null) // phone list: which row's "⋯" menu is open
+  const [page, setPage] = useState(1)
+  const [listSize, setListSize] = useState(() => savedSize(SIZE_KEY, LIST_SIZES, 25))
+  const [daySize, setDaySize] = useState(() => savedSize(DAY_SIZE_KEY, DAY_SIZES, 10))
   const [openDay, setOpenDay] = useState<string | null>(null) // By day: every day starts closed, and opening one closes the other
   const [grouped, setGrouped] = useState(() => {
     try { return localStorage.getItem(GROUP_KEY) === '1' } catch { return false }
@@ -131,6 +141,19 @@ export default function Trades({ rows, settings, refresh }: Props) {
   const counts = useMemo(() => Object.fromEntries(QUICK.map((c) => [c.id, base.filter(matchesQuick[c.id]).length])) as Record<Quick, number>, [base, matchesQuick])
   const shown = useMemo(() => base.filter(matchesQuick[quick]), [base, matchesQuick, quick])
   const days = useMemo(() => groupByDay(shown), [shown])
+
+  // Paging: the List view pages trades, By day pages whole days. Changing a filter or the view starts again at page 1.
+  const size = grouped ? daySize : listSize
+  const total = grouped ? days.length : shown.length
+  const current = clampPage(page, total, size) // e.g. after deleting the last trade on the final page
+  useEffect(() => { setPage(1) }, [q, setup, from, to, quick, grouped, size])
+  const pageDays = useMemo(() => pageSlice(days, current, size), [days, current, size])
+  const pageRows = useMemo(() => pageSlice(shown, current, size), [shown, current, size])
+  const phoneRows = grouped ? pageDays.flatMap((d) => d.rows) : pageRows // the phone list has no day bands, so it shows the days on this page
+  const changeSize = (n: number) => {
+    if (grouped) { setDaySize(n); try { localStorage.setItem(DAY_SIZE_KEY, String(n)) } catch { /* ignore */ } }
+    else { setListSize(n); try { localStorage.setItem(SIZE_KEY, String(n)) } catch { /* ignore */ } }
+  }
 
   const sum = useMemo(() => summarize(shown), [shown])
   const detailIndex = detailId === null ? -1 : shown.findIndex((r) => r.trade.id === detailId)
@@ -322,7 +345,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
                 </thead>
                 <tbody>
                   {grouped
-                    ? days.map((day) => {
+                    ? pageDays.map((day) => {
                       const open = openDay === day.date
                       return (
                         <Fragment key={day.date}>
@@ -343,11 +366,11 @@ export default function Trades({ rows, settings, refresh }: Props) {
                         </Fragment>
                       )
                     })
-                    : shown.map((r, i) => tradeRow(r, i > 0))}
+                    : pageRows.map((r, i) => tradeRow(r, i > 0))}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-line font-semibold">
-                    <td colSpan={grouped ? 6 : 7} className={`${TD} text-xs text-muted`}>Total · {shown.length} {shown.length === 1 ? 'trade' : 'trades'} · {sum.winRate.toFixed(1)}% won</td>
+                    <td colSpan={grouped ? 6 : 7} className={`${TD} text-xs text-muted`}>{total > size ? 'All pages' : 'Total'} · {shown.length} {shown.length === 1 ? 'trade' : 'trades'} · {sum.winRate.toFixed(1)}% won</td>
                     <td className={`num ${TDR} text-right text-muted`}>{num2(sum.charges)}</td>
                     <td className={`num ${TDR} text-right ${pnlColor(sum.net)}`}>{signed2(sum.net)}</td>
                     <td colSpan={4} />
@@ -358,7 +381,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
 
             {/* Phone: compact list, no sideways scrolling */}
             <ul className="px-3 pb-3 md:hidden">
-              {shown.map(({ trade: t, res }) => (
+              {phoneRows.map(({ trade: t, res }) => (
                 <li key={t.id} className="relative border-b border-line/50">
                   <div className="flex items-center">
                     <button type="button" onClick={() => setDetailId(t.id!)} aria-label={`Open ${t.symbol} trade on ${t.date}`}
@@ -385,6 +408,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
                 </li>
               ))}
             </ul>
+            <Pagination page={current} total={total} size={size} sizes={grouped ? DAY_SIZES : LIST_SIZES} unit={grouped ? 'days' : 'trades'} onPage={setPage} onSize={changeSize} />
           </>
         )}
       </div>
