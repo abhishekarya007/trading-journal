@@ -2,6 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import { useEffect, useState, useCallback } from 'react'
 import type { Settings, Trade, WeeklyReview } from './types'
 import { DEFAULT_SETTINGS } from './defaults'
+import { normalizeSettings, parseBackup, newTrades, mergeReviews, type ParsedBackup } from './backupMerge'
 
 class JournalDB extends Dexie {
   trades!: Table<Trade, number>
@@ -20,8 +21,7 @@ export function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) {
-      const s = JSON.parse(raw)
-      return { ...DEFAULT_SETTINGS, ...s, rates: { ...DEFAULT_SETTINGS.rates, ...s.rates }, risk: { ...DEFAULT_SETTINGS.risk, ...s.risk }, calculator: { ...DEFAULT_SETTINGS.calculator, ...s.calculator }, goals: { ...DEFAULT_SETTINGS.goals, ...s.goals }, cooldown: { ...DEFAULT_SETTINGS.cooldown, ...s.cooldown } }
+      return normalizeSettings(JSON.parse(raw))
     }
   } catch { /* fall through */ }
   return DEFAULT_SETTINGS
@@ -49,17 +49,21 @@ export async function exportJson(settings: Settings) {
   return JSON.stringify({ version: 2, settings, trades, reviews }, null, 2)
 }
 
+/** Replaces EVERYTHING (trades, reviews, settings) with the backup. Also used to undo an import. */
 export async function importJson(text: string): Promise<{ settings: Settings; count: number }> {
-  const data = JSON.parse(text)
-  if (!Array.isArray(data.trades)) throw new Error('Invalid file: no trades array')
-  const trades: Trade[] = data.trades.map(({ id: _id, ...t }: Trade) => t)
+  const parsed = parseBackup(text)
   await db.trades.clear()
-  await db.trades.bulkAdd(trades)
+  await db.trades.bulkAdd(parsed.trades)
   await db.reviews.clear()
-  if (Array.isArray(data.reviews)) await db.reviews.bulkPut(data.reviews)
-  const st = data.settings ?? {}
-  return {
-    settings: { ...DEFAULT_SETTINGS, ...st, rates: { ...DEFAULT_SETTINGS.rates, ...st.rates }, risk: { ...DEFAULT_SETTINGS.risk, ...st.risk }, calculator: { ...DEFAULT_SETTINGS.calculator, ...st.calculator }, goals: { ...DEFAULT_SETTINGS.goals, ...st.goals }, cooldown: { ...DEFAULT_SETTINGS.cooldown, ...st.cooldown } },
-    count: trades.length,
-  }
+  if (parsed.reviews.length) await db.reviews.bulkPut(parsed.reviews)
+  return { settings: normalizeSettings(parsed.settings), count: parsed.trades.length }
+}
+
+/** Adds the backup's trades and reviews to what is already here, skipping trades you already have. */
+export async function mergeBackup(parsed: ParsedBackup): Promise<{ added: number; skipped: number; reviewsAdded: number; reviewsFilled: number }> {
+  const { add, skipped } = newTrades(await db.trades.toArray(), parsed.trades)
+  if (add.length) await db.trades.bulkAdd(add)
+  const r = mergeReviews(await db.reviews.toArray(), parsed.reviews)
+  if (r.put.length) await db.reviews.bulkPut(r.put)
+  return { added: add.length, skipped, reviewsAdded: r.added, reviewsFilled: r.filled }
 }

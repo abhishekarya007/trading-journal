@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChargeRates, Settings } from '../lib/types'
-import { exportJson, importJson } from '../lib/db'
+import type { ChargeRates, Settings, WeeklyReview } from '../lib/types'
+import { db, exportJson, importJson, mergeBackup } from '../lib/db'
+import { mergeSettings, parseBackup, type ParsedBackup } from '../lib/backupMerge'
+import ImportDialog, { type ImportMode } from '../components/ImportDialog'
 import { DEFAULT_SETTINGS } from '../lib/defaults'
 
 const RATE_LABELS: Record<keyof ChargeRates, string> = {
@@ -85,18 +87,38 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
     setProtectedState(ok)
     toast(ok ? 'Storage is now protected' : 'Your browser declined. Keep regular backups instead.', ok ? 'success' : 'info')
   }
+  // Choosing a file only reads it. Nothing changes until you pick how to restore it in the dialog.
+  const [pending, setPending] = useState<{ parsed: ParsedBackup; text: string; name: string; reviews: WeeklyReview[] } | null>(null)
   const doImport = async (f: File) => {
     try {
-      const snapshot = await exportJson(settings) // taken first so the import can be undone
-      const { settings: s, count } = await importJson(await f.text())
-      save(s); refresh(); setMsg(`Imported ${count} trades (this replaced your previous trades).`)
-      toast(`Imported ${count} trades`, 'success', {
-        action: {
-          label: 'Undo',
-          run: async () => { const back = await importJson(snapshot); save(back.settings); refresh(); setMsg('Import undone.'); toast('Previous data restored', 'info') },
-        },
-      })
+      const text = await f.text()
+      setPending({ parsed: parseBackup(text), text, name: f.name, reviews: await db.reviews.toArray() })
+      setMsg('')
     } catch (e) { setMsg(`Import failed: ${(e as Error).message}`) }
+  }
+  const runImport = async (mode: ImportMode) => {
+    if (!pending) return
+    const { parsed, text } = pending
+    setPending(null)
+    try {
+      const snapshot = await exportJson(settings) // taken first so either choice can be undone
+      const undo = {
+        label: 'Undo',
+        run: async () => { const back = await importJson(snapshot); save(back.settings); refresh(); setMsg('Restore undone.'); toast('Previous data restored', 'info') },
+      }
+      if (mode === 'replace') {
+        const { settings: s, count } = await importJson(text)
+        save(s); refresh()
+        setMsg(`Replaced everything with ${count} trades from the backup.`)
+        toast(`Replaced with ${count} trades`, 'success', { action: undo })
+      } else {
+        const r = await mergeBackup(parsed)
+        save(mergeSettings(settings, parsed.settings)); refresh()
+        const parts = [`Added ${r.added} trade${r.added === 1 ? '' : 's'}`, r.skipped ? `skipped ${r.skipped} you already had` : '', r.reviewsAdded + r.reviewsFilled ? `${r.reviewsAdded + r.reviewsFilled} weekly review${r.reviewsAdded + r.reviewsFilled === 1 ? '' : 's'} added or completed` : ''].filter(Boolean)
+        setMsg(`${parts.join(', ')}.`)
+        toast(parts.slice(0, 2).join(', '), 'success', { action: undo })
+      }
+    } catch (e) { setMsg(`Restore failed: ${(e as Error).message}`) }
   }
 
   return (
@@ -229,6 +251,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
           <button className="btn-ghost" onClick={exportCsv} disabled={rows.length === 0} title="For Excel or Google Sheets. This is not a backup: it can't be restored into the app.">Export trades (CSV)</button>
           <input ref={file} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
         </div>
+        {pending && <ImportDialog parsed={pending.parsed} existing={rows.map((r) => r.trade)} existingReviews={pending.reviews} fileName={pending.name} onConfirm={runImport} onCancel={() => setPending(null)} />}
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
           <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={info.auto} onChange={(e) => setAutoBackup(e.target.checked)} />
           <span>Download a backup automatically when one is due
