@@ -12,6 +12,9 @@ export const DEFAULT_SETTINGS: Settings = {
   calculator: { capital: 100000, maxLoss: 1000 },
   goals: { profit: 0, maxLoss: 0 },
   cooldown: { minutes: 15, offerAfterLoss: true, sound: true, notify: false },
+  checklist: {
+    items: ['My stop-loss is decided', 'This is one of my planned setups', 'The risk is within my limit', 'I am calm, not chasing or getting even'],
+  },
   monthGoal: {},
   monthMaxLoss: {},
   rates: {

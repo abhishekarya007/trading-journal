@@ -256,6 +256,22 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
         </div>
       </div>}
 
+      {show('checklist') && <div className="card space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Pre-trade checklist</h2>
+            <p className="mt-0.5 text-xs text-muted">Open it any time with Z, or from the checklist button in the menu (the top bar on a phone). It shows whether you have a plan, are inside today&apos;s limits and are on a break, then your own questions to tick. Nothing is saved or asked automatically.</p>
+          </div>
+          <button className="btn-ghost" onClick={() => save({ ...settings, checklist: { items: DEFAULT_SETTINGS.checklist.items } })}>Reset questions</button>
+        </div>
+        <div>
+          <label className="label" htmlFor="checklist-items">Your questions (one per line)</label>
+          <textarea id="checklist-items" key={settings.checklist.items.join('|')} className="input" rows={5} defaultValue={settings.checklist.items.join('\n')}
+            onBlur={(e) => save({ ...settings, checklist: { items: [...new Set(e.target.value.split('\n').map((x) => x.trim()).filter(Boolean))].slice(0, 12) } })} />
+          <p className="mt-1 text-[11px] text-muted">Keep it short. 3 to 5 questions you would really answer. Up to 12.</p>
+        </div>
+      </div>}
+
       {show('cooldown') && <div className="card space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Cooldown timer</h2>
@@ -292,11 +308,11 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
       {show('sound') && <div className="card space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Sound &amp; haptics</h2>
-          <p className="mt-0.5 text-xs text-muted">A soft sound, and a short vibration on phones that support it, whenever a confirmation message appears: a trade added, deleted, copied, saved.</p>
+          <p className="mt-0.5 text-xs text-muted">A soft sound, and a short vibration on phones that support it. Saving a trade plays a sound for how it went (a win, a loss), and a special one when you reach your monthly goal or cross a risk limit. Other confirmations get a simple tick.</p>
         </div>
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
           <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={fb.sound} onChange={(e) => setFeedback({ sound: e.target.checked })} />
-          <span>Play a soft sound<span className="block text-xs text-muted">Success rises, errors fall, and notices are a single tick.</span></span>
+          <span>Play a soft sound<span className="block text-xs text-muted">Wins rise, losses are two calm low notes (never an alarm), goals chime, and limits pulse twice.</span></span>
         </label>
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
           <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={fb.haptics} onChange={(e) => setFeedback({ haptics: e.target.checked })} />
@@ -312,8 +328,8 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted">Try them:</span>
-          {(['success', 'error', 'info'] as FeedbackKind[]).map((k) => (
-            <button key={k} type="button" className="btn-ghost !px-3 !py-1 text-xs" onClick={() => { playSound(k, fb.volume); vibrate(k) }}>{k[0].toUpperCase() + k.slice(1)}</button>
+          {([['win', 'Win'], ['loss', 'Loss'], ['goal', 'Goal reached'], ['limit', 'Limit hit'], ['success', 'Saved'], ['error', 'Error'], ['info', 'Notice']] as [FeedbackKind, string][]).map(([k, label]) => (
+            <button key={k} type="button" className="btn-ghost !px-3 !py-1 text-xs" onClick={() => { playSound(k, fb.volume); vibrate(k) }}>{label}</button>
           ))}
         </div>
       </div>}

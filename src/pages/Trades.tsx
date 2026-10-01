@@ -12,11 +12,15 @@ import { IconCopy, IconEdit, IconPlus, IconSearch, IconTrash } from '../componen
 import { summarize } from '../lib/stats'
 import { groupByDay } from '../lib/habits'
 import { toast } from '../lib/toast'
+import { playFeedback } from '../lib/feedback'
+import { savedOutcome } from '../lib/tradeEvents'
 import { calcTrade } from '../lib/calc'
 import { readCooldown, remainingMs, startCooldown } from '../lib/cooldown'
 import { downloadText, tradesToCsv } from '../lib/csv'
 import { duplicateTemplate } from '../lib/tradeText'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
+
+const signed = (n: number) => (n > 0 ? '+' : '') + inr(n)
 
 interface Props { rows: Row[]; settings: Settings; refresh: () => void }
 
@@ -135,12 +139,21 @@ export default function Trades({ rows, settings, refresh }: Props) {
 
   const save = async (t: Trade) => {
     if (t.id == null) {
+      const outcome = savedOutcome(rows, t, settings)
       const id = await db.trades.add(t)
       closeForm()
       refresh()
-      toast(`${t.symbol} trade added`, 'success', {
+      // One sound for what the trade did to your day, instead of the generic confirmation sound.
+      playFeedback(outcome.result === 'win' ? 'win' : outcome.result === 'loss' ? 'loss' : 'info')
+      toast(`${t.symbol} ${signed(outcome.net)} · day ${signed(outcome.dayNet)}`, outcome.result === 'loss' ? 'info' : 'success', {
+        silent: true,
         action: { label: 'Undo', run: async () => { await db.trades.delete(id); refresh(); toast('Trade removed', 'info') } },
       })
+      if (outcome.goalReached) {
+        setTimeout(() => { playFeedback('goal'); toast('🎯 Monthly profit goal reached', 'success', { silent: true, duration: 5000 }) }, 600)
+      } else if (outcome.newWarnings.length) {
+        setTimeout(() => { playFeedback('limit'); toast(outcome.newWarnings[0].message, 'info', { silent: true, duration: 7000 }) }, 600)
+      }
       // A fresh loss: offer a break before the next trade (unless one is already running).
       const net = calcTrade(t, settings.rates).net
       if (net < 0 && t.date === localDate() && settings.cooldown.offerAfterLoss && remainingMs(readCooldown(), Date.now()) === 0) {

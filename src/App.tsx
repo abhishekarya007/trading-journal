@@ -24,13 +24,16 @@ import BackupBadge from './components/BackupBadge'
 import { milestones } from './lib/milestones'
 import { THEME_EVENT } from './lib/appearance'
 import CooldownCard from './components/CooldownCard'
+import ChecklistButton from './components/ChecklistButton'
+import ChecklistModal from './components/ChecklistModal'
 import CooldownModal from './components/CooldownModal'
 import { chime, formatClock, OPEN_EVENT, startCooldown, stopCooldown, useCooldown } from './lib/cooldown'
 import { backupStatus, downloadBackup, requestStorageProtection, useBackupInfo } from './lib/backup'
 import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
+import { useFlash } from './lib/useFlash'
 import {
-  IconTimer, IconCalc, IconChevLeft, IconChevRight, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
+  IconChecklist, IconTimer, IconCalc, IconChevLeft, IconChevRight, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
 } from './components/Icons'
 
 const links: { to: string; label: string; Icon: () => ReactElement; desktopOnly?: boolean }[] = [
@@ -59,6 +62,7 @@ export default function App() {
   const [palette, setPalette] = useState(false)
   const [cooldownOpen, setCooldownOpen] = useState(false)
   const [shortcuts, setShortcuts] = useState(false)
+  const [checklist, setChecklist] = useState(false)
   useEffect(() => {
     const f = (e: Event) => setDark(Boolean((e as CustomEvent<boolean>).detail))
     window.addEventListener(THEME_EVENT, f)
@@ -132,10 +136,11 @@ export default function App() {
     const fresh = reached.filter((m) => !seen!.includes(m.id))
     if (!fresh.length) return
     save([...new Set([...seen, ...reached.map((m) => m.id)])])
-    fresh.slice(0, 3).forEach((m, i) => setTimeout(() => toast(`🏆 ${m.title}`, 'success', { action: { label: 'View', run: () => navigate('/insights?tab=progress') } }), i * 600))
+    fresh.slice(0, 3).forEach((m, i) => setTimeout(() => toast(`🏆 ${m.title}`, 'success', { action: { label: 'View', run: () => navigate('/insights?tab=progress') } }), 1200 + i * 600))
   }, [loading, rows, settings, navigate])
 
   const todayKey = localDate()
+  const flash = useFlash(Math.round(rows.filter((r) => r.trade.date === todayKey).reduce((s, r) => s + r.res.net, 0)))
   const today = useMemo(() => summarize(rows.filter((r) => r.trade.date === todayKey)), [rows, todayKey])
 
   const addTrade = useCallback(() => navigate('/trades', { state: { add: Date.now() } }), [navigate])
@@ -150,6 +155,7 @@ export default function App() {
       else if (e.key === '[') { e.preventDefault(); toggleSidebar() }
       else if (e.key === 'c') { e.preventDefault(); setCooldownOpen(true) }
       else if (e.key === '?') { e.preventDefault(); setShortcuts(true) }
+      else if (e.key === 'z') { e.preventDefault(); setChecklist(true) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -187,6 +193,7 @@ export default function App() {
     const symbols = [...new Set(trades.map((t) => t.symbol))].sort()
     return [
       { id: 'add', group: 'Actions', label: 'Add a new trade', hint: 'N', icon: <IconPlus />, run: addTrade },
+      { id: 'checklist', group: 'Actions', label: 'Pre-trade checklist', hint: 'Z', icon: <IconChecklist />, run: () => setChecklist(true) },
       { id: 'cooldown', group: 'Actions', label: cooldown.active ? `Cooldown running: ${formatClock(cooldown.remaining)} left` : `Start a ${settings.cooldown.minutes}-minute cooldown`, hint: 'C', icon: <IconTimer />,
         run: () => { if (!cooldown.active) startCooldown(settings.cooldown.minutes); setCooldownOpen(true) } },
       ...(cooldown.active ? [{ id: 'cooldown-end', group: 'Actions', label: 'End the cooldown', icon: <IconTimer />, run: stopCooldown }] : []),
@@ -277,7 +284,7 @@ export default function App() {
               <div className={`num truncate text-[10px] font-semibold tracking-tight ${pnlColor(today.net)}`}>{signed(today.net)}</div>
             </div>
           ) : (
-            <div className="relative overflow-hidden rounded-2xl border border-line bg-panel2/60 p-3.5">
+            <div className={`relative overflow-hidden rounded-2xl border border-line bg-panel2/60 p-3.5 ${flash}`}>
               <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl"
                 style={{ background: `color-mix(in srgb, var(${today.net >= 0 ? '--up' : '--down'}) 30%, transparent)` }} />
               <div className="label !mb-1">Today</div>
@@ -292,6 +299,7 @@ export default function App() {
               )}
             </div>
           )}
+          <ChecklistButton collapsed={collapsed} onOpen={() => setChecklist(true)} />
           <CooldownCard collapsed={collapsed} onOpen={() => setCooldownOpen(true)} />
           <BackupBadge count={trades.length} settings={settings} compact={collapsed} />
           <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
@@ -305,7 +313,8 @@ export default function App() {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line/70 bg-panel/70 px-4 py-2.5 backdrop-blur-2xl md:hidden">
         <div className="flex items-center gap-2.5"><IconLogo size={30} /><span className="font-display text-sm font-semibold">Trade<span className="text-brand">Desk</span></span></div>
         <div className="flex items-center gap-2">
-          <span className={`num mr-1 text-sm font-semibold ${pnlColor(today.net)}`}>{signed(today.net)}</span>
+          <span className={`num mr-1 rounded-md px-1 text-sm font-semibold ${pnlColor(today.net)} ${flash}`}><AnimatedNumber value={today.net} format={signed} duration={700} /></span>
+          <button className="btn-ghost !px-2.5" onClick={() => setChecklist(true)} aria-label="Pre-trade checklist"><IconChecklist /></button>
           <button className={`btn-ghost !px-2.5 ${cooldown.active ? '!border-accent/60 !text-accent' : ''}`} onClick={() => setCooldownOpen(true)} aria-label={cooldown.active ? `Cooldown ${formatClock(cooldown.remaining)} left` : 'Cooldown timer'}>
             {cooldown.active ? <span className="num text-xs font-semibold">{formatClock(cooldown.remaining)}</span> : <IconTimer />}
           </button>
@@ -350,6 +359,7 @@ export default function App() {
         ))}
       </nav>
 
+      {checklist && <ChecklistModal rows={rows} settings={settings} onClose={() => setChecklist(false)} onAddTrade={addTrade} />}
       {cooldownOpen && <CooldownModal settings={settings} onClose={() => setCooldownOpen(false)} />}
       {shortcuts && <ShortcutsModal onClose={() => setShortcuts(false)} />}
       <CommandPalette open={palette} onClose={() => setPalette(false)} commands={commands} />

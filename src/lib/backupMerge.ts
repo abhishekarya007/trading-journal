@@ -11,6 +11,9 @@ export function normalizeSettings(s: Partial<Settings> | null | undefined): Sett
     calculator: { ...DEFAULT_SETTINGS.calculator, ...x.calculator },
     goals: { ...DEFAULT_SETTINGS.goals, ...x.goals },
     cooldown: { ...DEFAULT_SETTINGS.cooldown, ...x.cooldown },
+    checklist: {
+      items: Array.isArray(x.checklist?.items) ? x.checklist.items.filter((i): i is string => typeof i === 'string' && i.trim() !== '').map((i) => i.trim()) : DEFAULT_SETTINGS.checklist.items,
+    },
   }
 }
 

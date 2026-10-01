@@ -5,6 +5,7 @@ const GROUPS: { title: string; items: [string[], string][] }[] = [
     [['N'], 'Add a new trade'],
     [['⌘', 'K'], 'Open the command palette'],
     [['/'], 'Search (command palette)'],
+    [['Z'], 'Pre-trade checklist'],
     [['C'], 'Cooldown timer'],
     [['['], 'Collapse or expand the menu'],
     [['?'], 'Show this list'],

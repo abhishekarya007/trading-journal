@@ -11,6 +11,9 @@ class JournalDB extends Dexie {
     super('trading-journal')
     this.version(1).stores({ trades: '++id, date, symbol, type, setup' })
     this.version(2).stores({ trades: '++id, date, symbol, type, setup', reviews: 'weekStart' })
+    // The daily plan feature was removed; version 4 drops its table.
+    this.version(3).stores({ trades: '++id, date, symbol, type, setup', reviews: 'weekStart', days: 'date' })
+    this.version(4).stores({ trades: '++id, date, symbol, type, setup', reviews: 'weekStart', days: null })
   }
 }
 export const db = new JournalDB()

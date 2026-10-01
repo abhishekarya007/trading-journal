@@ -22,7 +22,7 @@ export function evaluateDay(rows: Row[], date: string, rules: Pick<RiskRules, 'd
     out.push({ rule: 'streak', message: `${streak} losses in a row (limit ${rules.maxConsecutiveLosses}). Consider stopping for the day.` })
 
   if (rules.maxTradesPerDay > 0 && day.length >= rules.maxTradesPerDay)
-    out.push({ rule: 'count', message: `${day.length} trades taken (limit ${rules.maxTradesPerDay}). Overtrading?` })
+    out.push({ rule: 'count', message: `${day.length} ${day.length === 1 ? 'trade' : 'trades'} taken (limit ${rules.maxTradesPerDay}). Overtrading?` })
 
   return out
 }

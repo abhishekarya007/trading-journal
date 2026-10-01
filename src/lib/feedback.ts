@@ -2,19 +2,29 @@ import { useEffect, useState } from 'react'
 
 const KEY = 'tj-feedback'
 
-export type FeedbackKind = 'success' | 'error' | 'info'
+/** success/error/info go with messages; win/loss/goal/limit go with what a saved trade did to your day. */
+export type FeedbackKind = 'success' | 'error' | 'info' | 'win' | 'loss' | 'goal' | 'limit'
 export type Volume = 'quiet' | 'normal' | 'loud'
 export interface Feedback { sound: boolean; haptics: boolean; volume: Volume }
 export const DEFAULT_FEEDBACK: Feedback = { sound: true, haptics: true, volume: 'normal' }
 
 export const GAIN: Record<Volume, number> = { quiet: 0.05, normal: 0.11, loud: 0.22 }
 /** Vibration lengths in milliseconds: a light tap for success, a double buzz for errors. */
-export const VIBRATION: Record<FeedbackKind, number | number[]> = { success: 12, info: 8, error: [25, 40, 25] }
+export const VIBRATION: Record<FeedbackKind, number | number[]> = {
+  success: 12, info: 8, error: [25, 40, 25],
+  win: 14, loss: 18, goal: [12, 40, 12, 40, 24], limit: [35, 50, 35],
+}
 /** Each kind is a few short notes: success rises, error falls, info is a single soft tick. */
 export const NOTES: Record<FeedbackKind, { f: number; at: number; dur: number; type: OscillatorType }[]> = {
   success: [{ f: 587, at: 0, dur: 0.09, type: 'sine' }, { f: 880, at: 0.07, dur: 0.14, type: 'sine' }],
   info: [{ f: 659, at: 0, dur: 0.1, type: 'sine' }],
   error: [{ f: 330, at: 0, dur: 0.11, type: 'triangle' }, { f: 247, at: 0.09, dur: 0.17, type: 'triangle' }],
+  // A winning trade: a small rising arpeggio. A losing one: two soft, low notes, deliberately calm rather than an alarm.
+  win: [{ f: 523, at: 0, dur: 0.09, type: 'sine' }, { f: 659, at: 0.07, dur: 0.09, type: 'sine' }, { f: 784, at: 0.14, dur: 0.24, type: 'sine' }],
+  loss: [{ f: 330, at: 0, dur: 0.15, type: 'triangle' }, { f: 262, at: 0.12, dur: 0.28, type: 'triangle' }],
+  // Goal reached: a bright four-note chime. Limit reached: a slow double pulse that gets your attention without shouting.
+  goal: [{ f: 784, at: 0, dur: 0.12, type: 'sine' }, { f: 988, at: 0.1, dur: 0.12, type: 'sine' }, { f: 1175, at: 0.2, dur: 0.14, type: 'sine' }, { f: 1568, at: 0.32, dur: 0.4, type: 'sine' }],
+  limit: [{ f: 440, at: 0, dur: 0.13, type: 'triangle' }, { f: 440, at: 0.2, dur: 0.13, type: 'triangle' }, { f: 349, at: 0.4, dur: 0.26, type: 'triangle' }],
 }
 
 export function readFeedback(): Feedback {

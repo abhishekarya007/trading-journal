@@ -173,6 +173,11 @@ table td, table th { white-space: nowrap; }
 table tbody tr { @apply transition-colors hover:bg-accent/5; }
 table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%, transparent); }
 
+/* A brief glow when a live total moves: green when it went up, red when it went down. */
+@keyframes flash-up { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 55%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+@keyframes flash-down { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--down) 55%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+.flash-up { animation: flash-up 0.9s ease-out; }
+.flash-down { animation: flash-down 0.9s ease-out; }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 .skeleton {
@@ -189,7 +194,7 @@ table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%,
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  body::before, .page, .rise, .sheet, .skeleton, .stagger > *, .ticker-track, .dot-live { animation: none !important; }
+  body::before, .flash-up, .flash-down, .page, .rise, .sheet, .skeleton, .stagger > *, .ticker-track, .dot-live { animation: none !important; }
   .ticker { overflow-x: auto; }
   * { transition: none !important; }
 }

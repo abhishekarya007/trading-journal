@@ -1,5 +1,5 @@
 export type SettingsTab = 'general' | 'capital' | 'risk' | 'charges' | 'sound' | 'data'
-export type SectionId = 'general' | 'appearance' | 'defaults' | 'monthly' | 'risk' | 'cooldown' | 'charges' | 'sound' | 'backup'
+export type SectionId = 'general' | 'appearance' | 'defaults' | 'monthly' | 'risk' | 'checklist' | 'cooldown' | 'charges' | 'sound' | 'backup'
 
 export const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: 'general', label: 'General' },
@@ -16,6 +16,7 @@ export const SECTIONS: { id: SectionId; tab: SettingsTab; title: string; keyword
   { id: 'defaults', tab: 'capital', title: 'Defaults', keywords: 'default trading capital profit goal loss limit' },
   { id: 'monthly', tab: 'capital', title: 'Monthly capital, goal & loss limit', keywords: 'month capital goal override carry forward' },
   { id: 'risk', tab: 'risk', title: 'Risk rules', keywords: 'max trades per day daily loss streak consecutive losses revenge' },
+  { id: 'checklist', tab: 'risk', title: 'Pre-trade checklist', keywords: 'questions tick before trade entry stop-loss discipline habit' },
   { id: 'cooldown', tab: 'risk', title: 'Cooldown timer', keywords: 'break minutes stop-loss pause notification chime' },
   { id: 'charges', tab: 'charges', title: 'Charge rates', keywords: 'brokerage stt exchange sebi stamp gst fees dhan' },
   { id: 'sound', tab: 'sound', title: 'Sound & haptics', keywords: 'sound vibrate vibration volume beep toast feedback' },
