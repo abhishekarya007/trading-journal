@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Settings } from './types'
 import { exportJson } from './db'
+import { jsonToZip } from './zipBackup'
 
 const K = { at: 'tj-last-backup', count: 'tj-last-backup-count', auto: 'tj-auto-backup', snooze: 'tj-backup-snooze', shots: 'tj-backup-shots', lite: 'tj-last-backup-lite' }
 export const DAY = 86_400_000
@@ -63,13 +64,16 @@ export function setAutoBackup(on: boolean) { write(K.auto, on ? '1' : '0'); noti
 export function setBackupScreenshots(on: boolean) { write(K.shots, on ? '1' : '0'); notify() }
 export function snoozeBackup(days = 2, now = Date.now()) { write(K.snooze, String(now + days * DAY)); notify() }
 
-/** Saves everything (trades, reviews, settings) as a JSON file download and records that a backup was made. */
+/**
+ * Saves everything (trades, reviews, settings) as a file download and records that a backup was made.
+ * It is a ZIP: data.json plus every screenshot as a real image file (a lite backup has no screenshots folder).
+ */
 export async function downloadBackup(settings: Settings, tradeCount: number, now = Date.now(), opts: { screenshots?: boolean } = {}): Promise<string> {
   const shots = opts.screenshots ?? readBackupInfo().screenshots // the saved choice unless told otherwise
   const text = await exportJson(settings, { screenshots: shots })
   const stamp = new Date(now)
-  const name = `trading-journal-${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')}${shots ? '' : '-lite'}.json`
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
+  const name = `trading-journal-${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')}${shots ? '' : '-lite'}.zip`
+  const url = URL.createObjectURL(new Blob([jsonToZip(text).slice().buffer as ArrayBuffer], { type: 'application/zip' }))
   const a = document.createElement('a')
   a.href = url
   a.download = name

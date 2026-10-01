@@ -25,6 +25,7 @@ import { downloadText, tradesToCsv } from '../lib/csv'
 import { chime } from '../lib/cooldown'
 import { playSound, setFeedback, useFeedback, vibrate, type FeedbackKind, type Volume } from '../lib/feedback'
 import { agoText, backupStatus, downloadBackup, requestStorageProtection, setAutoBackup, setBackupScreenshots, storageProtected, useBackupInfo } from '../lib/backup'
+import { readBackupFile } from '../lib/zipBackup'
 import CapitalInput from '../components/CapitalInput'
 import { monthlyCapital } from '../lib/capital'
 import { localDate } from '../lib/week'
@@ -110,7 +111,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
   const [pending, setPending] = useState<{ parsed: ParsedBackup; text: string; name: string; reviews: WeeklyReview[] } | null>(null)
   const doImport = async (f: File) => {
     try {
-      const text = await f.text()
+      const text = await readBackupFile(f) // a .zip is unpacked, a .json is read as is
       setPending({ parsed: parseBackup(text), text, name: f.name, reviews: await db.reviews.toArray() })
       setMsg('')
     } catch (e) { setMsg(`Import failed: ${(e as Error).message}`) }
@@ -337,7 +338,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
       {show('backup') && <div className="card space-y-2">
         <h2 className="text-sm font-semibold">Backup</h2>
         <p className="text-xs leading-relaxed text-muted">
-          Your trades live only in this browser. A backup is one file holding everything (trades, reviews and settings). Keep it in Google Drive or on a USB drive and you can restore it on any computer.
+          Your trades live only in this browser. A backup is one ZIP file: your trades, reviews and settings in data.json, and every screenshot as a normal image in a screenshots folder. Keep it in Google Drive or on a USB drive and you can restore it on any computer.
         </p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-panel2/40 px-3.5 py-2.5 text-sm">
           <span className={`h-2 w-2 rounded-full ${st.state === 'ok' ? 'bg-up' : st.state === 'due' ? 'bg-warn' : st.state === 'empty' ? 'bg-muted/50' : 'bg-down'}`} />
@@ -363,7 +364,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
           <button className="btn-ghost" onClick={() => doExport(!info.screenshots)} disabled={shots.images === 0} title={shots.images === 0 ? 'You have no screenshots, so there is no difference' : 'Download the other kind once, without changing your choice'}>Save a {info.screenshots ? 'lite' : 'full'} copy once</button>
           <button className="btn-ghost" onClick={() => file.current?.click()}>Restore from a backup…</button>
           <button className="btn-ghost" onClick={exportCsv} disabled={rows.length === 0} title="For Excel or Google Sheets. This is not a backup: it can't be restored into the app.">Export trades (CSV)</button>
-          <input ref={file} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
+          <input ref={file} type="file" accept=".zip,.json,application/zip,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
         </div>
         {pending && <ImportDialog parsed={pending.parsed} existing={rows.map((r) => r.trade)} existingReviews={pending.reviews} fileName={pending.name} onConfirm={runImport} onCancel={() => setPending(null)} />}
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">
