@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ChargeRates, Settings } from '../lib/types'
 import { exportJson, importJson } from '../lib/db'
 import { DEFAULT_SETTINGS } from '../lib/defaults'
@@ -15,6 +15,7 @@ const RATE_LABELS: Record<keyof ChargeRates, string> = {
 
 import PageTitle from '../components/PageTitle'
 import { toast } from '../lib/toast'
+import { agoText, backupStatus, downloadBackup, requestStorageProtection, setAutoBackup, storageProtected, useBackupInfo } from '../lib/backup'
 import CapitalInput from '../components/CapitalInput'
 import { monthlyCapital } from '../lib/capital'
 import { localDate } from '../lib/week'
@@ -35,13 +36,17 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
   }
   const list = (v: string) => v.split(',').map((x) => x.trim()).filter(Boolean)
 
+  const info = useBackupInfo()
+  const st = backupStatus(rows.length, info, Date.now())
+  const [protectedState, setProtectedState] = useState<boolean | null>(null)
+  useEffect(() => { storageProtected().then(setProtectedState) }, [])
   const doExport = async () => {
-    const blob = new Blob([await exportJson(settings)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `trading-journal-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(a.href)
+    try { const name = await downloadBackup(settings, rows.length); toast(`Backup saved: ${name}`) } catch { toast('Backup failed', 'error') }
+  }
+  const protect = async () => {
+    const ok = await requestStorageProtection()
+    setProtectedState(ok)
+    toast(ok ? 'Storage is now protected' : 'Your browser declined. Keep regular backups instead.', ok ? 'success' : 'info')
   }
   const doImport = async (f: File) => {
     try {
@@ -110,7 +115,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
         <div className="grid gap-3 md:grid-cols-3">
           {([['dailyLossLimit', 'Daily loss limit (₹)'], ['maxConsecutiveLosses', 'Max consecutive losses'], ['maxTradesPerDay', 'Max trades per day']] as const).map(([k, label]) => (
             <div key={k}><label className="label">{label}</label>
-              <input type="number" min={0} className="input" value={settings.risk[k]}
+              <input type="number" min={0} step="any" className="input" value={settings.risk[k]}
                 onChange={(e) => save({ ...settings, risk: { ...settings.risk, [k]: Number(e.target.value) } })} /></div>
           ))}
         </div>
@@ -133,11 +138,28 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
 
       <div className="card space-y-2">
         <h2 className="text-sm font-semibold">Backup</h2>
-        <p className="text-xs text-muted">Data is stored in this browser only. Export regularly.</p>
-        <div className="flex gap-2">
-          <button className="btn" onClick={doExport}>Export JSON</button>
-          <button className="btn-ghost" onClick={() => file.current?.click()}>Import JSON</button>
+        <p className="text-xs leading-relaxed text-muted">
+          Your trades live only in this browser. A backup is one file holding everything (trades, reviews and settings). Keep it in Google Drive or on a USB drive and you can restore it on any computer.
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-panel2/40 px-3.5 py-2.5 text-sm">
+          <span className={`h-2 w-2 rounded-full ${st.state === 'ok' ? 'bg-up' : st.state === 'due' ? 'bg-warn' : st.state === 'empty' ? 'bg-muted/50' : 'bg-down'}`} />
+          <span className="font-medium">{st.state === 'empty' ? 'No trades yet' : st.state === 'never' ? 'Never backed up' : `Last backup: ${agoText(st.days)}`}</span>
+          {st.state !== 'empty' && <span className="text-xs text-muted">{st.newSince > 0 ? `${st.newSince} trade${st.newSince === 1 ? '' : 's'} added since` : 'everything is saved'}</span>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn" onClick={doExport}>Back up now</button>
+          <button className="btn-ghost" onClick={() => file.current?.click()}>Restore from a backup…</button>
           <input ref={file} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
+        </div>
+        <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={info.auto} onChange={(e) => setAutoBackup(e.target.checked)} />
+          <span>Download a backup automatically when one is due
+            <span className="block text-xs text-muted">Checked when you open the app, about once a week. The file goes to your Downloads folder, so move it somewhere safe. Your browser may ask permission the first time.</span></span>
+        </label>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-3 text-sm">
+          <span className="font-medium">Browser storage protection:</span>
+          <span className={protectedState ? 'text-up' : 'text-warn'}>{protectedState === null ? 'unknown' : protectedState ? 'on, the browser won’t clear your data to free space' : 'off'}</span>
+          {protectedState === false && <button type="button" className="btn-ghost !px-2.5 !py-1 text-xs" onClick={protect}>Turn on</button>}
         </div>
         {msg && <p className="text-sm">{msg}</p>}
       </div>

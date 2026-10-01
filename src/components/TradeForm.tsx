@@ -85,12 +85,12 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div><label className="label">Date</label><input type="date" className="input" value={t.date} onChange={(e) => set('date', e.target.value)} required /></div>
-        <div><label className="label">Symbol</label><input data-autofocus={!initial && !prefill ? true : undefined} className="input uppercase" placeholder="RELIANCE" value={t.symbol} onChange={(e) => set('symbol', e.target.value)} required /></div>
+        <div><label className="label">Symbol</label><input data-autofocus={!initial && !prefill?.symbol ? true : undefined} className="input uppercase" placeholder="RELIANCE" value={t.symbol} onChange={(e) => set('symbol', e.target.value)} required /></div>
         <div><label className="label">Side</label>
           <select className="input" value={t.side} onChange={(e) => set('side', e.target.value as Trade['side'])}><option>Long</option><option>Short</option></select></div>
         <div><label className="label">Quantity</label><input {...num('qty')} step={1} /></div>
         <div><label className="label">Entry price</label><input {...num('entryPrice')} /></div>
-        <div><label className="label">Exit price</label><input data-autofocus={prefill ? true : undefined} {...num('exitPrice')} /></div>
+        <div><label className="label">Exit price</label><input data-autofocus={prefill?.symbol ? true : undefined} {...num('exitPrice')} /></div>
         <div><label className="label">Stop-loss (optional)</label><input {...num('stopLoss')} /></div>
         <div><label className="label">Target (optional)</label><input {...num('target')} /></div>
         <div className="md:col-span-2"><label className="label">Setup</label>

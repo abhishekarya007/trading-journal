@@ -45,6 +45,7 @@ export interface Settings {
   exitMistakes: string[] // subset of mistakeTags about leaving a trade (not priced as 'skip the trade')
   rates: ChargeRates
   risk: RiskRules
+  calculator: { capital: number; maxLoss: number } // defaults for the Calculator page (₹)
 }
 
 export interface ChargeBreakdown {

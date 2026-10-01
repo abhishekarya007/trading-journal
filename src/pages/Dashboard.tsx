@@ -11,6 +11,7 @@ import { nseStatus } from '../lib/market'
 import { evaluateDay } from '../lib/risk'
 import { monthlyCapital } from '../lib/capital'
 import CoachCard from '../components/CoachCard'
+import BackupBanner from '../components/BackupBanner'
 import Tabs from '../components/Tabs'
 import InfoTip from '../components/InfoTip'
 import { tips } from '../lib/glossary'
@@ -149,6 +150,7 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
 
   return (
     <div className="space-y-5">
+      <BackupBanner count={rows.length} settings={settings} />
       <RiskBanner warnings={warnings} title="Today's risk rules" />
 
       {/* Hero + win rate */}

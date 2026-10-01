@@ -23,3 +23,4 @@ export const IconBolt = () => <svg {...base}><path d="M13 2L4 14h7l-1 8 9-12h-7l
 export const IconScale = () => <svg {...base}><path d="M12 3v18M5 7h14M5 7l-3 7a4 4 0 006 0L5 7zM19 7l-3 7a4 4 0 006 0l-3-7z" /></svg>
 export const IconDown = () => <svg {...base}><path d="M3 7l6 6 4-4 8 8" /><path d="M21 11v6h-6" /></svg>
 export const IconWallet = () => <svg {...base}><rect x="3" y="6" width="18" height="14" rx="2.5" /><path d="M16 13h2M3 10h18M6 6l9-3 2 3" /></svg>
+export const IconCalc = () => <svg {...base}><rect x="5" y="3" width="14" height="18" rx="2.5" /><path d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01" /></svg>

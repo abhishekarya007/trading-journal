@@ -73,13 +73,22 @@ export default function Trades({ rows, settings, refresh }: Props) {
 
   // Deep links from the dashboard, command palette and N shortcut.
   useEffect(() => {
-    const st = location.state as { add?: number; open?: number; q?: string } | null
+    const st = location.state as { add?: number; open?: number; q?: string; prefill?: { side: Trade['side']; qty: number; entry: number; stop?: number; target?: number } } | null
     if (!st) return
     if (st.add) { setEditing(null); setPrefill(null); setFormOpen(true) }
     if (st.open) setDetailId(st.open)
+    if (st.prefill) {
+      const f = st.prefill
+      setEditing(null)
+      setPrefill({
+        date: localDate(), symbol: '', side: f.side, qty: f.qty, entryPrice: f.entry, exitPrice: 0, stopLoss: f.stop, target: f.target,
+        setup: settings.setups[0] ?? '', emotion: 'Calm', followedPlan: true, mistakes: [], notes: '',
+      })
+      setFormOpen(true)
+    }
     if (st.q) { setQ(st.q); setSetup(''); setFrom(''); setTo(''); setQuick('all') }
     navigate(location.pathname, { replace: true, state: null })
-  }, [location.state, location.pathname, navigate])
+  }, [location.state, location.pathname, navigate, settings.setups])
 
   // Filters typed in the boxes, before the quick chips.
   const base = useMemo(

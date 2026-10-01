@@ -1,5 +1,5 @@
 import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { db, useSettings, useTrades } from './lib/db'
 import { calcTrade } from './lib/calc'
 import { summarize, type Row } from './lib/stats'
@@ -11,20 +11,24 @@ import Dashboard from './pages/Dashboard'
 import Trades from './pages/Trades'
 import Insights from './pages/Insights'
 import Weekly from './pages/Weekly'
+import Calculator from './pages/Calculator'
 import SettingsPage from './pages/SettingsPage'
 import Ticker, { type Tick } from './components/Ticker'
 import CommandPalette, { type Command } from './components/CommandPalette'
 import Toaster from './components/Toaster'
 import { toast } from './lib/toast'
+import BackupBadge from './components/BackupBadge'
+import { backupStatus, downloadBackup, requestStorageProtection, useBackupInfo } from './lib/backup'
 import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
 import {
-  IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
+  IconCalc, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
 } from './components/Icons'
 
 const links = [
   { to: '/', label: 'Dashboard', Icon: IconDashboard },
   { to: '/trades', label: 'Trades', Icon: IconTrades },
+  { to: '/calculator', label: 'Calculator', Icon: IconCalc },
   { to: '/weekly', label: 'Weekly', Icon: IconWeekly },
   { to: '/insights', label: 'Insights', Icon: IconInsights },
   { to: '/settings', label: 'Settings', Icon: IconSettings },
@@ -39,10 +43,14 @@ const isTyping = (el: EventTarget | null) => {
 
 export default function App() {
   const navigate = useNavigate()
-  const onTrades = useLocation().pathname === '/trades'
+  const path = useLocation().pathname
+  const onTrades = path === '/trades'
   const [settings, saveSettings] = useSettings()
   const { trades, loading, refresh } = useTrades()
   const [palette, setPalette] = useState(false)
+  const backupInfo = useBackupInfo()
+  const autoTried = useRef(false)
+  const protectTried = useRef(false)
   const [dark, setDark] = useState(() => {
     try { return localStorage.getItem('tj-dark') !== '0' } catch { return true }
   })
@@ -50,6 +58,21 @@ export default function App() {
     document.documentElement.classList.toggle('dark', dark)
     try { localStorage.setItem('tj-dark', dark ? '1' : '0') } catch { /* ignore */ }
   }, [dark])
+
+  // Optional automatic weekly backup: once per session, only when one is due.
+  useEffect(() => {
+    if (loading || autoTried.current || !backupInfo.auto || trades.length === 0) return
+    if (backupStatus(trades.length, backupInfo, Date.now()).state === 'ok') return
+    autoTried.current = true
+    downloadBackup(settings, trades.length).then((n) => toast(`Automatic backup saved: ${n}`)).catch(() => toast('Automatic backup failed', 'error'))
+  }, [loading, trades.length, backupInfo, settings])
+
+  // Once there is real data, ask the browser to protect it from being cleared to free disk space.
+  useEffect(() => {
+    if (loading || protectTried.current || trades.length < 3) return
+    protectTried.current = true
+    void requestStorageProtection()
+  }, [loading, trades.length])
 
   const rows: Row[] = useMemo(
     () => trades.map((trade) => ({ trade, res: calcTrade(trade, settings.rates) })),
@@ -181,6 +204,7 @@ export default function App() {
               </div>
             )}
           </div>
+          <BackupBadge count={trades.length} settings={settings} />
           <div className="flex items-center justify-between">
             {themeBtn}
             <span className="text-[11px] text-muted">v1 · local only</span>
@@ -212,6 +236,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Dashboard rows={rows} settings={settings} onAdd={addTrade} />} />
               <Route path="/trades" element={<Trades rows={rows} settings={settings} refresh={refresh} />} />
+              <Route path="/calculator" element={<Calculator rows={rows} settings={settings} save={saveSettings} />} />
               <Route path="/weekly" element={<Weekly rows={rows} settings={settings} />} />
               <Route path="/insights" element={<Insights rows={rows} settings={settings} save={saveSettings} />} />
               <Route path="/settings" element={<SettingsPage rows={rows} settings={settings} save={saveSettings} refresh={refresh} />} />
@@ -221,8 +246,8 @@ export default function App() {
       </main>
 
       {/* Mobile: floating add + bottom nav */}
-      <button onClick={addTrade} aria-label="Add trade"
-        className={`btn fixed bottom-20 z-30 !h-14 !w-14 !rounded-2xl !p-0 md:hidden ${onTrades ? 'left-4' : 'right-4'}`}><IconPlus /></button>
+      {path !== '/calculator' && <button onClick={addTrade} aria-label="Add trade"
+        className={`btn fixed bottom-20 z-30 !h-14 !w-14 !rounded-2xl !p-0 md:hidden ${onTrades ? 'left-4' : 'right-4'}`}><IconPlus /></button>}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line/70 bg-panel/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-2xl md:hidden">
         {links.map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} end={to === '/'}

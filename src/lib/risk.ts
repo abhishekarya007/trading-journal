@@ -6,7 +6,7 @@ export interface RiskWarning {
   message: string
 }
 
-export function evaluateDay(rows: Row[], date: string, rules: RiskRules): RiskWarning[] {
+export function evaluateDay(rows: Row[], date: string, rules: Pick<RiskRules, 'dailyLossLimit' | 'maxConsecutiveLosses' | 'maxTradesPerDay'>): RiskWarning[] {
   const day = rows
     .filter((r) => r.trade.date === date)
     .sort((a, b) => (a.trade.id ?? 0) - (b.trade.id ?? 0))
