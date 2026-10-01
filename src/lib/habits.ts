@@ -1,5 +1,6 @@
 import type { Row } from './stats'
 import { summarize } from './stats'
+import { minutes12 } from './format'
 
 const sum = (a: number[]) => a.reduce((s, x) => s + x, 0)
 const avg = (a: number[]) => (a.length ? sum(a) / a.length : 0)
@@ -9,11 +10,8 @@ const toMin = (t?: string) => {
   const [h, m] = t.split(':').map(Number)
   return Number.isNaN(h) || Number.isNaN(m) ? null : h * 60 + m
 }
-/** Minute-of-day to HH:MM, rounding the total first so 10:59.6 becomes 11:00, never 10:60. */
-export const hhmm = (m: number) => {
-  const t = Math.round(m)
-  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
-}
+/** Minute-of-day as a 12-hour time ("9:15 AM"), rounding the total first so 10:59.6 becomes 11:00 AM, never 10:60. */
+export const hhmm = (m: number) => minutes12(m)
 const mode = (a: string[]) => {
   const c = new Map<string, number>()
   for (const x of a) if (x) c.set(x, (c.get(x) ?? 0) + 1)

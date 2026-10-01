@@ -74,7 +74,7 @@ export default function CoachCard({ rows, settings, weekKey, onFocusSaved, hideT
             return (
               <li key={it.id} className="flex flex-wrap items-start gap-3 rounded-xl border border-line bg-panel2/40 p-3">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-down/15 font-display text-sm font-bold text-down">{i + 1}</span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[13rem] flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <span className="font-semibold">{it.title}</span>
                     <span className="num text-sm font-semibold text-down">{it.estimate ? 'up to ' : ''}-{inr(it.cost)}</span>

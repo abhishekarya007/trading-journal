@@ -29,8 +29,12 @@ describe('holding / time', () => {
   })
   it('groups by entry hour and counts untimed trades', () => {
     const t = timeOfDay([row(10, { entryTime: '09:20' }), row(-5, { entryTime: '09:50' }), row(1)])
-    expect(t.data).toEqual([{ name: '09:00', net: 5, count: 2 }])
+    expect(t.data).toEqual([{ name: '9 AM', net: 5, count: 2 }])
     expect(t.missing).toBe(1)
+  })
+  it('labels hours in 12-hour time and orders them by the real hour', () => {
+    const t = timeOfDay([row(1, { entryTime: '13:10' }), row(1, { entryTime: '10:05' }), row(1, { entryTime: '12:30' }), row(1, { entryTime: '9:45' })])
+    expect(t.data.map((d) => d.name)).toEqual(['9 AM', '10 AM', '12 PM', '1 PM'])
   })
 })
 

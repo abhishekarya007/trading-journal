@@ -1,5 +1,6 @@
 import type { Trade } from './types'
 import { groupNet, summarize, type Row } from './stats'
+import { hour12 } from './format'
 
 const sum = (a: number[]) => a.reduce((s, x) => s + x, 0)
 const avg = (a: number[]) => (a.length ? sum(a) / a.length : 0)
@@ -28,11 +29,14 @@ export function chronological(rows: Row[]): Row[] {
   )
 }
 
+const hourOf = (label: string) => { const [h, ap] = label.split(' '); return (Number(h) % 12) + (ap === 'PM' ? 12 : 0) }
+
 // 1. Time of day (by entry hour)
 export function timeOfDay(rows: Row[]) {
   const timed = rows.filter((r) => r.trade.entryTime)
   return {
-    data: groupNet(timed, (r) => [`${r.trade.entryTime!.slice(0, 2)}:00`]).sort((a, b) => a.name.localeCompare(b.name)),
+    // Bars are labelled "9 AM", "1 PM"...; they are sorted by the real hour, not by the label text.
+    data: groupNet(timed, (r) => [hour12(Number(r.trade.entryTime!.split(':')[0]))]).sort((a, b) => hourOf(a.name) - hourOf(b.name)),
     missing: rows.length - timed.length,
   }
 }

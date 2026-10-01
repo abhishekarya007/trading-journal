@@ -118,9 +118,9 @@ describe('notes', () => {
 
 describe('hhmm', () => {
   it('rounds the total so minutes never read 60', () => {
-    expect(hhmm(10 * 60 + 59.6)).toBe('11:00')
-    expect(hhmm(9 * 60 + 15)).toBe('09:15')
-    expect(hhmm(10 * 60 + 26.4)).toBe('10:26')
+    expect(hhmm(10 * 60 + 59.6)).toBe('11:00 AM')
+    expect(hhmm(9 * 60 + 15)).toBe('9:15 AM')
+    expect(hhmm(10 * 60 + 26.4)).toBe('10:26 AM')
   })
 })
 

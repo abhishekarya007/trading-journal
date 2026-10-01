@@ -11,7 +11,7 @@ const DEFS: Def[] = [
   { key: 'stopAfterLosses', desc: 'Done for the day once you have had this many losing trades.', input: 'num', prefix: 'after', suffix: 'losing trades', min: 1, step: 1 },
   { key: 'dailyLossLimit', desc: 'Done for the day once the day is down this much.', input: 'num', prefix: '₹', suffix: 'lost in a day', min: 1, step: 100 },
   { key: 'capLossR', desc: 'If a trade goes against you, you exit at this many times the risk you planned (entry to stop-loss). Needs a stop-loss on the trade.', input: 'num', prefix: 'cut at', suffix: '× risk', min: 0.1, step: 0.1 },
-  { key: 'skipFirstMinutes', desc: 'Let the opening noise pass. Needs entry times.', input: 'num', prefix: 'wait', suffix: 'min after 9:15', min: 1, step: 5 },
+  { key: 'skipFirstMinutes', desc: 'Let the opening noise pass. Needs entry times.', input: 'num', prefix: 'wait', suffix: 'min after 9:15 AM', min: 1, step: 5 },
   { key: 'noEntriesAfter', desc: 'No new trades late in the session. Needs entry times.', input: 'time', prefix: 'none from' },
   { key: 'skipFlawed', desc: 'Skip anything where you broke your plan or tagged an entry or behaviour mistake.', input: 'none' },
   { key: 'skipSetup', desc: 'Drop a setup completely.', input: 'setup', prefix: 'skip' },

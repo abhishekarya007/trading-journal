@@ -5,7 +5,7 @@ import type { Settings } from '../lib/types'
 import { equityCurve, groupNet, summarize, type Row } from '../lib/stats'
 import { chronological } from '../lib/insights'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
-import { inr, pnlColor } from '../lib/format'
+import { inr, pnlColor, time12 } from '../lib/format'
 import { axisTick, COLORS, tooltipStyle } from '../lib/theme'
 import { useAccentColors } from '../lib/appearance'
 import { nseStatus } from '../lib/market'
@@ -301,7 +301,7 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
                     {t.symbol}
                     <span className={`rounded px-1 py-px text-[9px] font-bold ${t.side === 'Long' ? 'bg-up/15 text-up' : 'bg-down/15 text-down'}`}>{t.side === 'Long' ? 'L' : 'S'}</span>
                   </div>
-                  <div className="truncate text-[11px] text-muted">{t.date}{t.entryTime ? ` · ${t.entryTime}` : ''} · {t.setup}</div>
+                  <div className="truncate text-[11px] text-muted">{t.date}{t.entryTime ? ` · ${time12(t.entryTime)}` : ''} · {t.setup}</div>
                 </div>
                 <div className="text-right">
                   <div className={`num text-sm font-semibold ${pnlColor(res.net)}`}>{signed(res.net)}</div>

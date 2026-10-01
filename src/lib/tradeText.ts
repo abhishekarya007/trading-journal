@@ -1,6 +1,6 @@
 import type { Trade } from './types'
 import type { Row } from './stats'
-import { inr } from './format'
+import { inr, time12 } from './format'
 import { holdMinutes } from './insights'
 
 /** A new-trade template from an existing one: same instrument and plan, but no outcome or journal entries. */
@@ -26,7 +26,7 @@ export function duplicateTemplate(t: Trade, today: string): Trade {
 export function tradeSummary({ trade: t, res }: Row): string {
   const hold = holdMinutes(t)
   const parts = [
-    `${t.symbol} ${t.side.toUpperCase()} · ${t.date}${t.entryTime ? ` ${t.entryTime}` : ''}${t.exitTime ? `–${t.exitTime}` : ''}`,
+    `${t.symbol} ${t.side.toUpperCase()} · ${t.date}${t.entryTime ? ` ${time12(t.entryTime)}` : ''}${t.exitTime ? ` – ${time12(t.exitTime)}` : ''}`,
     `Qty ${t.qty} · Entry ${t.entryPrice} → Exit ${t.exitPrice}`,
     [t.stopLoss ? `SL ${t.stopLoss}` : '', t.target ? `Target ${t.target}` : ''].filter(Boolean).join(' · '),
     `Net ${res.net > 0 ? '+' : ''}${inr(res.net, 2)} (gross ${inr(res.gross, 2)}, charges ${inr(res.charges.total, 2)})` +

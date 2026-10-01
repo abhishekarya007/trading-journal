@@ -6,5 +6,5 @@ export function nseStatus(now = new Date()) {
   if (day === 0 || day === 6) return { open: false, label: 'Closed · weekend' }
   if (m >= 540 && m < 555) return { open: false, label: 'Pre-open' }
   if (m >= 555 && m < 930) return { open: true, label: 'Market open' }
-  return { open: false, label: m < 540 ? 'Opens 9:15' : 'Closed' }
+  return { open: false, label: m < 540 ? 'Opens 9:15 AM' : 'Closed' }
 }

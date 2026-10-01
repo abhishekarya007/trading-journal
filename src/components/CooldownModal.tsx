@@ -3,6 +3,7 @@ import type { Settings } from '../lib/types'
 import { elapsedPct, extendCooldown, formatClock, startCooldown, stopCooldown, useCooldown } from '../lib/cooldown'
 import Modal from './Modal'
 import Ring from './Ring'
+import { time12 } from '../lib/format'
 
 const PRESETS = [5, 10, 15, 30, 45]
 const TIPS = ['Stand up and step away from the screen.', 'Breathe slowly, in for 4 and out for 6, a few times.', 'Write what happened in one line. Was it the plan, or the market?']
@@ -21,7 +22,7 @@ export default function CooldownModal({ settings, onClose }: { settings: Setting
           <div className="flex justify-center py-1">
             <Ring value={elapsedPct(cd, now)} size={190} stroke={12}>
               <div className="num text-4xl font-semibold tracking-tight" aria-live="off">{formatClock(remaining)}</div>
-              <div className="mt-1 text-xs text-muted">ends at {new Date(cd.end).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div className="mt-1 text-xs text-muted">ends at {time12(`${new Date(cd.end).getHours()}:${String(new Date(cd.end).getMinutes()).padStart(2, '0')}`)}</div>
             </Ring>
           </div>
           <p className="text-sm text-muted">Don’t take the next trade until this reaches zero. You can still log trades you’ve already made.</p>

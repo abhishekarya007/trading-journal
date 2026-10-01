@@ -6,7 +6,7 @@ import { db } from '../lib/db'
 import TradeForm from '../components/TradeForm'
 import TradeDetail from '../components/TradeDetail'
 import Modal from '../components/Modal'
-import { inr, pnlColor } from '../lib/format'
+import { inr, pnlColor, time12 } from '../lib/format'
 import PageTitle from '../components/PageTitle'
 import { IconCopy, IconEdit, IconPlus, IconSearch, IconTrash } from '../components/Icons'
 import { summarize } from '../lib/stats'
@@ -46,7 +46,7 @@ const savedSize = (key: string, allowed: readonly number[], fallback: number) =>
 }
 const num2 = (n: number) => n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const signed2 = (n: number) => (n > 0 ? '+' : '') + num2(n)
-const clock = (t?: string) => (t ? t.padStart(5, '0') : '')
+const clock = (t?: string) => time12(t)
 
 const HOLD_CLS = 'hidden @min-[1180px]:table-cell'
 const MID_CLS = 'hidden @min-[860px]:table-cell' // Time and R are the first to go when the table is narrow
@@ -87,7 +87,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
   const [showFilters, setShowFilters] = useState(false)
   const [menuFor, setMenuFor] = useState<number | null>(null) // phone list: which row's "⋯" menu is open
   const [page, setPage] = useState(1)
-  const [listSize, setListSize] = useState(() => savedSize(SIZE_KEY, LIST_SIZES, 25))
+  const [listSize, setListSize] = useState(() => savedSize(SIZE_KEY, LIST_SIZES, 10))
   const [daySize, setDaySize] = useState(() => savedSize(DAY_SIZE_KEY, DAY_SIZES, 10))
   const [openDay, setOpenDay] = useState<string | null>(null) // By day: every day starts closed, and opening one closes the other
   const [grouped, setGrouped] = useState(() => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Settings, Trade } from '../lib/types'
 import type { Row } from '../lib/stats'
 import { adherence, holdMinutes } from '../lib/insights'
-import { inr, pct, pnlColor } from '../lib/format'
+import { inr, pct, pnlColor, time12 } from '../lib/format'
 import Modal from './Modal'
 import SymbolAvatar from './SymbolAvatar'
 import { tradeSummary } from '../lib/tradeText'
@@ -122,7 +122,7 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
       <SymbolAvatar symbol={t.symbol} />
       <span className="font-display text-lg font-bold tracking-wide">{t.symbol}</span>
       <span className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${t.side === 'Long' ? 'bg-up/15 text-up' : 'bg-down/15 text-down'}`}>{t.side.toUpperCase()}</span>
-      <span className="text-sm font-normal text-muted">{t.date}{t.entryTime && ` · ${t.entryTime}`}{t.exitTime && ` → ${t.exitTime}`}</span>
+      <span className="text-sm font-normal text-muted">{t.date}{t.entryTime && ` · ${time12(t.entryTime)}`}{t.exitTime && ` → ${time12(t.exitTime)}`}</span>
     </div>
   )
 
