@@ -21,7 +21,7 @@ export function loadSettings(): Settings {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (raw) {
       const s = JSON.parse(raw)
-      return { ...DEFAULT_SETTINGS, ...s, rates: { ...DEFAULT_SETTINGS.rates, ...s.rates }, risk: { ...DEFAULT_SETTINGS.risk, ...s.risk }, calculator: { ...DEFAULT_SETTINGS.calculator, ...s.calculator }, goals: { ...DEFAULT_SETTINGS.goals, ...s.goals } }
+      return { ...DEFAULT_SETTINGS, ...s, rates: { ...DEFAULT_SETTINGS.rates, ...s.rates }, risk: { ...DEFAULT_SETTINGS.risk, ...s.risk }, calculator: { ...DEFAULT_SETTINGS.calculator, ...s.calculator }, goals: { ...DEFAULT_SETTINGS.goals, ...s.goals }, cooldown: { ...DEFAULT_SETTINGS.cooldown, ...s.cooldown } }
     }
   } catch { /* fall through */ }
   return DEFAULT_SETTINGS
@@ -59,7 +59,7 @@ export async function importJson(text: string): Promise<{ settings: Settings; co
   if (Array.isArray(data.reviews)) await db.reviews.bulkPut(data.reviews)
   const st = data.settings ?? {}
   return {
-    settings: { ...DEFAULT_SETTINGS, ...st, rates: { ...DEFAULT_SETTINGS.rates, ...st.rates }, risk: { ...DEFAULT_SETTINGS.risk, ...st.risk }, calculator: { ...DEFAULT_SETTINGS.calculator, ...st.calculator }, goals: { ...DEFAULT_SETTINGS.goals, ...st.goals } },
+    settings: { ...DEFAULT_SETTINGS, ...st, rates: { ...DEFAULT_SETTINGS.rates, ...st.rates }, risk: { ...DEFAULT_SETTINGS.risk, ...st.risk }, calculator: { ...DEFAULT_SETTINGS.calculator, ...st.calculator }, goals: { ...DEFAULT_SETTINGS.goals, ...st.goals }, cooldown: { ...DEFAULT_SETTINGS.cooldown, ...st.cooldown } },
     count: trades.length,
   }
 }

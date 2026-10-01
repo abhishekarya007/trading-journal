@@ -12,6 +12,8 @@ import { IconCopy, IconEdit, IconPlus, IconSearch, IconTrash } from '../componen
 import { summarize } from '../lib/stats'
 import { groupByDay } from '../lib/habits'
 import { toast } from '../lib/toast'
+import { calcTrade } from '../lib/calc'
+import { readCooldown, remainingMs, startCooldown } from '../lib/cooldown'
 import { downloadText, tradesToCsv } from '../lib/csv'
 import { duplicateTemplate } from '../lib/tradeText'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
@@ -139,6 +141,13 @@ export default function Trades({ rows, settings, refresh }: Props) {
       toast(`${t.symbol} trade added`, 'success', {
         action: { label: 'Undo', run: async () => { await db.trades.delete(id); refresh(); toast('Trade removed', 'info') } },
       })
+      // A fresh loss: offer a break before the next trade (unless one is already running).
+      const net = calcTrade(t, settings.rates).net
+      if (net < 0 && t.date === localDate() && settings.cooldown.offerAfterLoss && remainingMs(readCooldown(), Date.now()) === 0) {
+        setTimeout(() => toast(`That trade lost ${inr(-net)}. Take a ${settings.cooldown.minutes}-minute cooldown before the next one?`, 'info', {
+          action: { label: 'Start cooldown', run: () => { startCooldown(settings.cooldown.minutes) } }, duration: 12000,
+        }), 500)
+      }
     } else {
       const before = rows.find((r) => r.trade.id === t.id)?.trade
       await db.trades.put(t)

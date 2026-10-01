@@ -12,6 +12,7 @@ import { evaluateDay } from '../lib/risk'
 import { monthlyCapital } from '../lib/capital'
 import CoachCard from '../components/CoachCard'
 import BackupBanner from '../components/BackupBanner'
+import CooldownBanner from '../components/CooldownBanner'
 import GoalCard from '../components/GoalCard'
 import { goalStatus, monthLimitWarnings } from '../lib/goals'
 import Tabs from '../components/Tabs'
@@ -157,6 +158,7 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
 
   return (
     <div className="space-y-5">
+      <CooldownBanner />
       <BackupBanner count={rows.length} settings={settings} />
       <RiskBanner warnings={[...warnings, ...monthLimitWarnings(goal)]} title="Risk rules" />
 

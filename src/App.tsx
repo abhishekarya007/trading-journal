@@ -20,11 +20,14 @@ import Toaster from './components/Toaster'
 import { toast } from './lib/toast'
 import BackupBadge from './components/BackupBadge'
 import { milestones } from './lib/milestones'
+import CooldownCard from './components/CooldownCard'
+import CooldownModal from './components/CooldownModal'
+import { chime, formatClock, OPEN_EVENT, startCooldown, stopCooldown, useCooldown } from './lib/cooldown'
 import { backupStatus, downloadBackup, requestStorageProtection, useBackupInfo } from './lib/backup'
 import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
 import {
-  IconCalc, IconChevLeft, IconChevRight, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
+  IconTimer, IconCalc, IconChevLeft, IconChevRight, IconReport, IconDashboard, IconInsights, IconLogo, IconMoon, IconPlus, IconSearch, IconSettings, IconSun, IconTrades, IconWeekly,
 } from './components/Icons'
 
 const links: { to: string; label: string; Icon: () => ReactElement; desktopOnly?: boolean }[] = [
@@ -51,6 +54,8 @@ export default function App() {
   const [settings, saveSettings] = useSettings()
   const { trades, loading, refresh } = useTrades()
   const [palette, setPalette] = useState(false)
+  const [cooldownOpen, setCooldownOpen] = useState(false)
+  const cooldown = useCooldown()
   // The sidebar can shrink to an icons-only rail to give pages more room. The choice is remembered.
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('tj-sidebar') === '1' } catch { return false } })
   const toggleSidebar = useCallback(() => {
@@ -86,6 +91,27 @@ export default function App() {
     () => trades.map((trade) => ({ trade, res: calcTrade(trade, settings.rates) })),
     [trades, settings.rates],
   )
+  // Cooldown: open the timer from anywhere, show it in the tab title, and say so when it ends.
+  useEffect(() => {
+    const open = () => setCooldownOpen(true)
+    window.addEventListener(OPEN_EVENT, open)
+    return () => window.removeEventListener(OPEN_EVENT, open)
+  }, [])
+  useEffect(() => {
+    document.title = cooldown.active ? `⏳ ${formatClock(cooldown.remaining)} · Cooldown` : 'Trading Journal'
+  }, [cooldown.active, cooldown.remaining])
+  useEffect(() => {
+    if (!cooldown.finished || !cooldown.cd) return
+    const ended = cooldown.cd.end
+    stopCooldown()
+    if (Date.now() - ended > 10 * 60_000) return // it ran out while the app was closed: don't make noise now
+    toast('⏱ Cooldown finished. Check your plan before the next trade.', 'info', { duration: 8000 })
+    if (settings.cooldown.sound) chime()
+    if (settings.cooldown.notify && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try { new Notification('Cooldown finished', { body: 'Check your plan before the next trade.' }) } catch { /* ignore */ }
+    }
+  }, [cooldown.finished, cooldown.cd, settings.cooldown.sound, settings.cooldown.notify])
+
   // New milestones get a toast. The first time this runs, what you have already reached is recorded silently.
   useEffect(() => {
     if (loading) return
@@ -113,6 +139,7 @@ export default function App() {
       if (e.key === 'n') { e.preventDefault(); addTrade() }
       else if (e.key === '/') { e.preventDefault(); setPalette(true) }
       else if (e.key === '[') { e.preventDefault(); toggleSidebar() }
+      else if (e.key === 'c') { e.preventDefault(); setCooldownOpen(true) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -150,13 +177,16 @@ export default function App() {
     const symbols = [...new Set(trades.map((t) => t.symbol))].sort()
     return [
       { id: 'add', group: 'Actions', label: 'Add a new trade', hint: 'N', icon: <IconPlus />, run: addTrade },
+      { id: 'cooldown', group: 'Actions', label: cooldown.active ? `Cooldown running: ${formatClock(cooldown.remaining)} left` : `Start a ${settings.cooldown.minutes}-minute cooldown`, hint: 'C', icon: <IconTimer />,
+        run: () => { if (!cooldown.active) startCooldown(settings.cooldown.minutes); setCooldownOpen(true) } },
+      ...(cooldown.active ? [{ id: 'cooldown-end', group: 'Actions', label: 'End the cooldown', icon: <IconTimer />, run: stopCooldown }] : []),
       { id: 'sidebar', group: 'Actions', label: collapsed ? 'Expand the menu' : 'Collapse the menu to icons', hint: '[', icon: collapsed ? <IconChevRight /> : <IconChevLeft />, run: toggleSidebar },
       { id: 'theme', group: 'Actions', label: `Switch to ${dark ? 'light' : 'dark'} theme`, icon: dark ? <IconSun /> : <IconMoon />, run: () => setDark((d) => !d) },
       ...links.map((l) => ({ id: `nav${l.to}`, group: 'Go to', label: l.label, icon: <l.Icon />, run: go(l.to) })),
       ...INSIGHT_TABS.filter((t) => t.id !== 'overview').map((t) => ({ id: `ins${t.id}`, group: 'Go to', label: `Insights › ${t.label}`, icon: <IconInsights />, run: () => navigate(`/insights?tab=${t.id}`) })),
       ...symbols.map((s) => ({ id: `sym${s}`, group: 'Symbols', label: `${s} trades`, icon: <span className="text-[10px] font-bold">{s.slice(0, 2)}</span>, run: go('/trades', { q: s }) })),
     ]
-  }, [trades, dark, addTrade, navigate, collapsed, toggleSidebar])
+  }, [trades, dark, addTrade, navigate, collapsed, toggleSidebar, cooldown.active, cooldown.remaining, settings.cooldown.minutes])
 
   // Trades saved before the app became intraday-only.
   const legacy = trades.filter((t) => (t as { type?: string }).type === 'Delivery')
@@ -251,6 +281,7 @@ export default function App() {
               )}
             </div>
           )}
+          <CooldownCard collapsed={collapsed} onOpen={() => setCooldownOpen(true)} />
           <BackupBadge count={trades.length} settings={settings} compact={collapsed} />
           <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
             {themeBtn}
@@ -264,6 +295,9 @@ export default function App() {
         <div className="flex items-center gap-2.5"><IconLogo size={30} /><span className="font-display text-sm font-semibold">Trade<span className="text-brand">Desk</span></span></div>
         <div className="flex items-center gap-2">
           <span className={`num mr-1 text-sm font-semibold ${pnlColor(today.net)}`}>{signed(today.net)}</span>
+          <button className={`btn-ghost !px-2.5 ${cooldown.active ? '!border-accent/60 !text-accent' : ''}`} onClick={() => setCooldownOpen(true)} aria-label={cooldown.active ? `Cooldown ${formatClock(cooldown.remaining)} left` : 'Cooldown timer'}>
+            {cooldown.active ? <span className="num text-xs font-semibold">{formatClock(cooldown.remaining)}</span> : <IconTimer />}
+          </button>
           <button className="btn-ghost !px-2.5" onClick={() => setPalette(true)} aria-label="Search"><IconSearch /></button>
           {themeBtn}
         </div>
@@ -305,6 +339,7 @@ export default function App() {
         ))}
       </nav>
 
+      {cooldownOpen && <CooldownModal settings={settings} onClose={() => setCooldownOpen(false)} />}
       <CommandPalette open={palette} onClose={() => setPalette(false)} commands={commands} />
       <Toaster />
     </div>

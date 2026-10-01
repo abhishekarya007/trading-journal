@@ -31,3 +31,4 @@ export const IconCopy = () => <svg {...small}><rect x="9" y="9" width="12" heigh
 export const IconTrash = () => <svg {...small}><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" /></svg>
 export const IconChevLeft = () => <svg {...small}><path d="M15 6l-6 6 6 6" /></svg>
 export const IconChevRight = () => <svg {...small}><path d="M9 6l6 6-6 6" /></svg>
+export const IconTimer = () => <svg {...base}><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2M9 2h6M12 2v3" /></svg>

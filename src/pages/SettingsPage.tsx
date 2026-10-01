@@ -16,12 +16,31 @@ const RATE_LABELS: Record<keyof ChargeRates, string> = {
 import PageTitle from '../components/PageTitle'
 import { toast } from '../lib/toast'
 import { downloadText, tradesToCsv } from '../lib/csv'
+import { chime } from '../lib/cooldown'
 import { agoText, backupStatus, downloadBackup, requestStorageProtection, setAutoBackup, storageProtected, useBackupInfo } from '../lib/backup'
 import CapitalInput from '../components/CapitalInput'
 import { monthlyCapital } from '../lib/capital'
 import { localDate } from '../lib/week'
 import { inr, pnlColor } from '../lib/format'
 import type { Row } from '../lib/stats'
+
+/** A whole-number field that saves when you leave it, so you can clear it and type a new value freely. */
+function MinutesField({ value, onSave }: { value: number; onSave: (n: number) => void }) {
+  const [draft, setDraft] = useState(String(value))
+  useEffect(() => { setDraft(String(value)) }, [value])
+  const commit = () => {
+    const n = Math.round(Number(draft))
+    if (!Number.isFinite(n) || n < 1) { setDraft(String(value)); return }
+    const clamped = Math.min(240, n)
+    setDraft(String(clamped))
+    if (clamped !== value) onSave(clamped)
+  }
+  return (
+    <input type="number" min={1} max={240} className="input" value={draft} aria-label="Default cooldown length in minutes"
+      onChange={(e) => setDraft(e.target.value)} onFocus={(e) => e.target.select()} onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }} />
+  )
+}
 
 interface Props { rows: Row[]; settings: Settings; save: (s: Settings) => void; refresh: () => void }
 
@@ -159,6 +178,39 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
                 onChange={(e) => save({ ...settings, rates: { ...settings.rates, [k]: Number(e.target.value) } })} /></div>
           ))}
         </div>
+      </div>
+
+      <div className="card space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Cooldown timer</h2>
+          <p className="mt-0.5 text-xs text-muted">A break timer for after a stop-loss. Start it from the menu or press <span className="kbd">C</span>.</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div><label className="label">Default length (minutes)</label>
+            <MinutesField value={settings.cooldown.minutes} onSave={(n) => save({ ...settings, cooldown: { ...settings.cooldown, minutes: n } })} /></div>
+        </div>
+        {([
+          ['offerAfterLoss', 'Offer a cooldown when I log a losing trade', 'After you save a loss from today, a message asks if you want to start one.'],
+          ['sound', 'Play a chime when it ends', 'Browsers only allow sound after you have used the page, which starting the timer counts as.'],
+        ] as const).map(([k, title, hint]) => (
+          <label key={k} className="flex cursor-pointer items-start gap-2.5 text-sm">
+            <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={settings.cooldown[k]} onChange={(e) => save({ ...settings, cooldown: { ...settings.cooldown, [k]: e.target.checked } })} />
+            <span>{title}<span className="block text-xs text-muted">{hint}</span></span>
+          </label>
+        ))}
+        <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={settings.cooldown.notify}
+            onChange={async (e) => {
+              const want = e.target.checked
+              if (want && typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+                const p = await Notification.requestPermission()
+                if (p !== 'granted') { toast('Your browser blocked notifications, so this stays off.', 'info'); return }
+              }
+              save({ ...settings, cooldown: { ...settings.cooldown, notify: want } })
+            }} />
+          <span>Show a browser notification when it ends<span className="block text-xs text-muted">Useful when this tab is in the background. Your browser will ask for permission.</span></span>
+        </label>
+        <button type="button" className="btn-ghost text-xs" onClick={() => { chime(); toast('That is the chime.', 'info') }}>Test the chime</button>
       </div>
 
       <div className="card space-y-2">

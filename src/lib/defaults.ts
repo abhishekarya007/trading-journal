@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   risk: { dailyLossLimit: 2000, maxConsecutiveLosses: 3, maxTradesPerDay: 10 },
   calculator: { capital: 100000, maxLoss: 1000 },
   goals: { profit: 0, maxLoss: 0 },
+  cooldown: { minutes: 15, offerAfterLoss: true, sound: true, notify: false },
   monthGoal: {},
   monthMaxLoss: {},
   rates: {

@@ -8,6 +8,7 @@ import { inr } from '../lib/format'
 import { localDate } from '../lib/week'
 import { toast } from '../lib/toast'
 import PageTitle from '../components/PageTitle'
+import CooldownBanner from '../components/CooldownBanner'
 
 interface Props { rows: Row[]; settings: Settings; save: (s: Settings) => void }
 
@@ -61,6 +62,7 @@ export default function Calculator({ rows, settings, save }: Props) {
   return (
     <div className="space-y-5">
       <PageTitle title="Position size calculator" sub="Enter your entry and stop-loss. It suggests how many shares keep your loss, charges included, within your limit." />
+      <CooldownBanner />
 
       <div className="grid items-start gap-5 lg:grid-cols-5">
         {/* Inputs */}
