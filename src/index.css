@@ -210,3 +210,8 @@ table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%,
 .rowbtn:hover, .rowbtn:focus-visible { background: var(--panel2); color: var(--fg); outline: none; }
 .rowbtn:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
 .rowbtn-danger:hover, .rowbtn-danger:focus-visible { background: color-mix(in srgb, var(--down) 14%, transparent); color: var(--down); }
+
+/* Number boxes: no up/down arrows (they and the scroll wheel changed values by accident). */
+input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }

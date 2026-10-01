@@ -105,7 +105,7 @@ export default function App() {
     const ended = cooldown.cd.end
     stopCooldown()
     if (Date.now() - ended > 10 * 60_000) return // it ran out while the app was closed: don't make noise now
-    toast('⏱ Cooldown finished. Check your plan before the next trade.', 'info', { duration: 8000 })
+    toast('⏱ Cooldown finished. Check your plan before the next trade.', 'info', { duration: 8000, silent: true })
     if (settings.cooldown.sound) chime()
     if (settings.cooldown.notify && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try { new Notification('Cooldown finished', { body: 'Check your plan before the next trade.' }) } catch { /* ignore */ }

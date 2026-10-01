@@ -1,3 +1,5 @@
+import { playFeedback } from './feedback'
+
 export type ToastTone = 'success' | 'error' | 'info'
 export interface ToastAction { label: string; run: () => void | Promise<void> }
 export interface ToastItem { id: number; text: string; tone: ToastTone; action?: ToastAction }
@@ -13,10 +15,11 @@ export function dismissToast(id: number) {
 }
 
 /** Show a message. A toast with an action (e.g. Undo) stays longer so there's time to use it. */
-export function toast(text: string, tone: ToastTone = 'success', opts: { action?: ToastAction; duration?: number } = {}) {
+export function toast(text: string, tone: ToastTone = 'success', opts: { action?: ToastAction; duration?: number; silent?: boolean } = {}) {
   const t: ToastItem = { id: ++seq, text, tone, action: opts.action }
   items = [...items, t].slice(-4)
   emit()
+  if (!opts.silent) playFeedback(tone)
   setTimeout(() => dismissToast(t.id), opts.duration ?? (opts.action ? 7000 : 2800))
   return t.id
 }

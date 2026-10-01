@@ -19,6 +19,7 @@ import PageTitle from '../components/PageTitle'
 import { toast } from '../lib/toast'
 import { downloadText, tradesToCsv } from '../lib/csv'
 import { chime } from '../lib/cooldown'
+import { playSound, setFeedback, useFeedback, vibrate, type FeedbackKind, type Volume } from '../lib/feedback'
 import { agoText, backupStatus, downloadBackup, requestStorageProtection, setAutoBackup, setBackupScreenshots, storageProtected, useBackupInfo } from '../lib/backup'
 import CapitalInput from '../components/CapitalInput'
 import { monthlyCapital } from '../lib/capital'
@@ -74,6 +75,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
   const st = backupStatus(rows.length, info, Date.now())
   const [protectedState, setProtectedState] = useState<boolean | null>(null)
   useEffect(() => { storageProtected().then(setProtectedState) }, [])
+  const fb = useFeedback()
   const shots = screenshotStats(rows.map((r) => r.trade))
   const liteBase = rows.length * 500 + 2000 // rough size of a backup without images (measured: about 440 bytes a trade)
   const doExport = async (screenshots?: boolean) => {
@@ -235,6 +237,35 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
           <span>Show a browser notification when it ends<span className="block text-xs text-muted">Useful when this tab is in the background. Your browser will ask for permission.</span></span>
         </label>
         <button type="button" className="btn-ghost text-xs" onClick={() => { chime(); toast('That is the chime.', 'info') }}>Test the chime</button>
+      </div>
+
+      <div className="card space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Sound &amp; haptics</h2>
+          <p className="mt-0.5 text-xs text-muted">A soft sound, and a short vibration on phones that support it, whenever a confirmation message appears: a trade added, deleted, copied, saved.</p>
+        </div>
+        <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={fb.sound} onChange={(e) => setFeedback({ sound: e.target.checked })} />
+          <span>Play a soft sound<span className="block text-xs text-muted">Success rises, errors fall, and notices are a single tick.</span></span>
+        </label>
+        <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+          <input type="checkbox" className="mt-1 h-4 w-4 accent-[var(--accent)]" checked={fb.haptics} onChange={(e) => setFeedback({ haptics: e.target.checked })} />
+          <span>Vibrate<span className="block text-xs text-muted">Works on most Android phones. iPhones and computers have no vibration, so this does nothing there.</span></span>
+        </label>
+        <div className={fb.sound ? '' : 'pointer-events-none opacity-50'}>
+          <div className="label">Volume</div>
+          <div className="seg" role="group" aria-label="Sound volume">
+            {(['quiet', 'normal', 'loud'] as Volume[]).map((v) => (
+              <button key={v} aria-pressed={fb.volume === v} onClick={() => { setFeedback({ volume: v }); playSound('success', v) }}>{v[0].toUpperCase() + v.slice(1)}</button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted">Try them:</span>
+          {(['success', 'error', 'info'] as FeedbackKind[]).map((k) => (
+            <button key={k} type="button" className="btn-ghost !px-3 !py-1 text-xs" onClick={() => { playSound(k, fb.volume); vibrate(k) }}>{k[0].toUpperCase() + k.slice(1)}</button>
+          ))}
+        </div>
       </div>
 
       <div className="card space-y-2">

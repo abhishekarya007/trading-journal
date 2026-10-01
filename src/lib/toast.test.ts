@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { dismissToast, subscribeToasts, toast, type ToastItem } from './toast'
 import { tips } from './glossary'
+import { playFeedback } from './feedback'
+
+vi.mock('./feedback', () => ({ playFeedback: vi.fn() }))
 
 describe('toast', () => {
   let latest: ToastItem[] = []
@@ -39,5 +42,18 @@ describe('glossary', () => {
     expect(tips.payoff(0.81, 55.3).text).toContain('55.3%')
     expect(tips.payoff(null, null).title).toContain('Payoff')
     expect(tips.sizeVariation(0.54).text).toContain('54%')
+  })
+})
+
+describe('toast feedback', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.mocked(playFeedback).mockClear() })
+  afterEach(() => { vi.runAllTimers(); vi.useRealTimers() })
+  it('plays the matching sound for each tone, unless asked to be silent', () => {
+    toast('saved')
+    toast('oops', 'error')
+    toast('fyi', 'info')
+    expect(vi.mocked(playFeedback).mock.calls.map((c) => c[0])).toEqual(['success', 'error', 'info'])
+    toast('quiet one', 'success', { silent: true })
+    expect(vi.mocked(playFeedback)).toHaveBeenCalledTimes(3)
   })
 })
