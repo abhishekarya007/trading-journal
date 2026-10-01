@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS: Settings = {
   checklist: {
     items: ['My stop-loss is decided', 'This is one of my planned setups', 'The risk is within my limit', 'I am calm, not chasing or getting even'],
   },
+  rulebook: { rules: [] },
   monthGoal: {},
   monthMaxLoss: {},
   rates: {

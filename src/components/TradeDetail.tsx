@@ -7,6 +7,7 @@ import Modal from './Modal'
 import SymbolAvatar from './SymbolAvatar'
 import { tradeSummary } from '../lib/tradeText'
 import { toast } from '../lib/toast'
+import { describeRule, type TradeCheck } from '../lib/rulebook'
 
 interface Props {
   row: Row
@@ -18,6 +19,7 @@ interface Props {
   onDuplicate: () => void
   onPrev?: () => void
   onNext?: () => void
+  rules?: TradeCheck // how this trade did against your rulebook
 }
 
 const fmtMin = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`)
@@ -65,7 +67,7 @@ function Ladder({ t }: { t: Trade }) {
   )
 }
 
-export default function TradeDetail({ row, settings, position, onClose, onEdit, onDelete, onDuplicate, onPrev, onNext }: Props) {
+export default function TradeDetail({ row, settings, position, onClose, onEdit, onDelete, onDuplicate, onPrev, onNext, rules }: Props) {
   const { trade: t, res } = row
   const [zoom, setZoom] = useState<string | null>(null)
 
@@ -201,6 +203,14 @@ export default function TradeDetail({ row, settings, position, onClose, onEdit, 
                   {t.mistakes.length ? t.mistakes.map((m) => <span key={m} className="rounded-full border border-down/50 bg-down/10 px-2.5 py-0.5 text-xs text-down">{m}</span>) : <span className="text-xs text-muted">No mistakes tagged</span>}
                 </div>
               </div>
+              {rules && rules.passed + rules.failed > 0 && (
+                <div className="rounded-xl border border-line p-3.5 sm:col-span-2">
+                  <h3 className="mb-2 flex items-baseline justify-between text-sm font-semibold">Rulebook <span className="text-xs font-normal text-muted">{rules.passed} of {rules.passed + rules.failed} followed</span></h3>
+                  <ul className="space-y-1 text-sm">
+                    {rules.results.filter((r) => r.outcome !== 'na').map((r) => <li key={r.rule.id} className={r.outcome === 'pass' ? 'text-up' : 'text-down'}>{r.outcome === 'pass' ? '✓' : '✕'} <span className="text-fg">{describeRule(r.rule)}</span></li>)}
+                  </ul>
+                </div>
+              )}
               <div className="rounded-xl border border-line p-3.5">
                 <h3 className="mb-2 text-sm font-semibold">Execution</h3>
                 <ul className="space-y-1 text-sm">

@@ -1,3 +1,4 @@
+import type { Rule } from './rulebook'
 export type Side = 'Long' | 'Short'
 
 export interface Trade {
@@ -49,6 +50,7 @@ export interface Settings {
   goals: { profit: number; maxLoss: number } // default monthly profit goal and loss limit in ₹ (0 = off)
   cooldown: { minutes: number; offerAfterLoss: boolean; sound: boolean; notify: boolean } // the break timer after a stop-loss
   checklist: { items: string[] } // the questions on the pre-trade checklist (opened with Z)
+  rulebook: { rules: Rule[] } // your trading rules, checked against every trade automatically
   monthGoal: Record<string, number> // profit goal typed for a month (YYYY-MM)
   monthMaxLoss: Record<string, number> // loss limit typed for a month (YYYY-MM)
 }

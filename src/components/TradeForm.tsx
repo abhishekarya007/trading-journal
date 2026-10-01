@@ -11,6 +11,7 @@ import { goalStatus, monthLimitWarnings } from '../lib/goals'
 import { validateTrade } from '../lib/validate'
 import type { Row } from '../lib/stats'
 import RiskBanner from './RiskBanner'
+import RulebookCheck from './RulebookCheck'
 
 const today = () => localDate()
 const MORE_KEY = 'tj-form-more'
@@ -170,6 +171,8 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
           </div>
         )}
       </div>
+
+      <RulebookCheck draft={t} rows={rows} settings={settings} />
 
       {(check.errors.length > 0 || check.warnings.length > 0) && (
         <ul className="space-y-1 rounded-xl border border-line bg-panel2/40 px-3.5 py-2.5 text-sm" aria-live="polite">

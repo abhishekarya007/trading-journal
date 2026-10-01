@@ -8,6 +8,7 @@ import { addDays, formatRange, localDate, weekDays, weekStart } from '../lib/wee
 import { inr, pct, pnlColor } from '../lib/format'
 import PageTitle from '../components/PageTitle'
 import CoachCard from '../components/CoachCard'
+import { checkAll, rulebookStats } from '../lib/rulebook'
 
 const emptyReview = (ws: string): WeeklyReview => ({ weekStart: ws, wentWell: '', improve: '', focus: '' })
 
@@ -59,6 +60,13 @@ export default function Weekly({ rows, settings }: { rows: Row[]; settings: Sett
   const brokePlan = weekRows.filter((r) => !r.trade.followedPlan)
   const brokeCost = brokePlan.reduce((a, r) => a + r.res.net, 0)
 
+  // Rulebook score for the week (checked with the whole history, so day rules are right)
+  const rb = useMemo(() => {
+    const checks = checkAll(rows, settings)
+    if (!checks.size) return null
+    const st = rulebookStats(weekRows, checks, settings)
+    return st.adherence === null ? null : { adherence: st.adherence, clean: st.cleanTrades, trades: st.trades }
+  }, [rows, settings, weekRows])
   const delta = prevRows.length ? s.net - prev.net : null
   const dayTiles = days.map((d) => {
     const r = weekRows.filter((x) => x.trade.date === d)
@@ -179,6 +187,7 @@ export default function Weekly({ rows, settings }: { rows: Row[]; settings: Sett
               <h3 className="mb-3 text-sm font-semibold">Discipline</h3>
               <dl>
                 <Line label="Broke your plan">{brokePlan.length ? <><b>{brokePlan.length}</b> <span className="text-xs text-muted">{brokePlan.length === 1 ? 'trade' : 'trades'}, net</span> <span className={`num ${pnlColor(brokeCost)}`}>{inr(brokeCost)}</span></> : <span className="text-up">Never</span>}</Line>
+                {rb && <Line label="Rulebook"><span className={`num font-semibold ${rb.adherence >= 90 ? 'text-up' : rb.adherence >= 70 ? 'text-warn' : 'text-down'}`}>{pct(rb.adherence)}</span> <span className="text-xs text-muted">followed · {rb.clean} of {rb.trades} trades clean</span></Line>}
                 <Line label="Risk rules">{breachDays.length ? <span className="text-warn">{breachDays.length} {breachDays.length === 1 ? 'day' : 'days'} breached</span> : <span className="text-up">None breached</span>}</Line>
                 {breachDays.map(({ d, w }) => (
                   <Line key={d} label={short(d)}><span className="text-xs text-warn">{w.map((x) => x.message).join(' ')}</span></Line>

@@ -22,12 +22,13 @@ import { clampPage, DAY_SIZES, LIST_SIZES, pageSlice } from '../lib/paginate'
 import Pagination from '../components/Pagination'
 import { duplicateTemplate } from '../lib/tradeText'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
+import { checkAll, describeRule } from '../lib/rulebook'
 
 const signed = (n: number) => (n > 0 ? '+' : '') + inr(n)
 
 interface Props { rows: Row[]; settings: Settings; refresh: () => void }
 
-type Quick = 'all' | 'today' | 'week' | 'month' | 'wins' | 'losses' | 'broke'
+type Quick = 'all' | 'today' | 'week' | 'month' | 'wins' | 'losses' | 'broke' | 'rules'
 const QUICK: { id: Quick; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'today', label: 'Today' },
@@ -36,6 +37,7 @@ const QUICK: { id: Quick; label: string }[] = [
   { id: 'wins', label: 'Wins' },
   { id: 'losses', label: 'Losses' },
   { id: 'broke', label: 'Broke plan' },
+  { id: 'rules', label: 'Broke a rule' },
 ]
 
 const GROUP_KEY = 'tj-grouped'
@@ -126,6 +128,9 @@ export default function Trades({ rows, settings, refresh }: Props) {
         .sort((a, b) => b.trade.date.localeCompare(a.trade.date) || (b.trade.id ?? 0) - (a.trade.id ?? 0)),
     [rows, q, setup, from, to],
   )
+  // Rulebook: every trade checked against the rules that are switched on (empty when there are none)
+  const checks = useMemo(() => checkAll(rows, settings), [rows, settings])
+  const hasRules = checks.size > 0
   const matchesQuick = useMemo(() => {
     const week = weekDays(weekStart(today))
     return {
@@ -136,8 +141,9 @@ export default function Trades({ rows, settings, refresh }: Props) {
       wins: (r: Row) => r.res.net > 0,
       losses: (r: Row) => r.res.net < 0,
       broke: (r: Row) => !r.trade.followedPlan,
+      rules: (r: Row) => (checks.get(r.trade)?.failed ?? 0) > 0,
     } satisfies Record<Quick, (r: Row) => boolean>
-  }, [today])
+  }, [today, checks])
   const counts = useMemo(() => Object.fromEntries(QUICK.map((c) => [c.id, base.filter(matchesQuick[c.id]).length])) as Record<Quick, number>, [base, matchesQuick])
   const shown = useMemo(() => base.filter(matchesQuick[quick]), [base, matchesQuick, quick])
   const days = useMemo(() => groupByDay(shown), [shown])
@@ -235,6 +241,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
   const flags = (t: Trade) => (
     <>
       {!t.followedPlan && <span className="ml-1 text-warn" title="Did not follow plan">⚠</span>}
+      {(checks.get(t)?.failed ?? 0) > 0 && <span className="ml-1 text-down" title={`Broke: ${checks.get(t)!.results.filter((x) => x.outcome === 'fail').map((x) => describeRule(x.rule)).join('; ')}`}>⚑</span>}
       {!!t.screenshots?.length && <span className="ml-1" title="Has screenshots">📷</span>}
     </>
   )
@@ -302,7 +309,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
           )}
 
           <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]" role="group" aria-label="Quick filters">
-            {QUICK.map((c) => (
+            {QUICK.filter((c) => c.id !== 'rules' || hasRules).map((c) => (
               <button key={c.id} type="button" aria-pressed={quick === c.id} onClick={() => setQuick(c.id)}
                 className={`chip shrink-0 transition hover:border-accent/60 ${quick === c.id ? '!border-accent !bg-accent/15 !text-fg' : ''}`}>
                 {c.label} <b className="num">{counts[c.id]}</b>
@@ -336,7 +343,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
         ) : (
           <>
             {/* Desktop / tablet: dense spreadsheet */}
-            <div className="@container hidden overflow-x-auto pb-4 md:block md:px-5">
+            <div className="@container relative hidden overflow-x-auto pb-4 md:block md:px-5">
               <table className={`w-full text-[13px] @min-[1250px]:text-sm [&_tr>*:last-child]:pr-0 ${grouped ? '[&_tr>*:first-child]:pl-[2.4rem] [&_tr.day-row>*:first-child]:pl-0' : '[&_tr>*:first-child]:pl-1'}`}>
                 <thead className="text-[11px] uppercase tracking-wider text-muted">
                   <tr className="border-b border-line">
@@ -416,6 +423,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
       {detailRow && (
         <TradeDetail
           row={detailRow}
+          rules={checks.get(detailRow.trade)}
           settings={settings}
           position={{ index: detailIndex, total: shown.length }}
           onClose={() => setDetailId(null)}
