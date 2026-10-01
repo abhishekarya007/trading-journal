@@ -15,6 +15,7 @@ const RATE_LABELS: Record<keyof ChargeRates, string> = {
 
 import PageTitle from '../components/PageTitle'
 import { toast } from '../lib/toast'
+import { downloadText, tradesToCsv } from '../lib/csv'
 import { agoText, backupStatus, downloadBackup, requestStorageProtection, setAutoBackup, storageProtected, useBackupInfo } from '../lib/backup'
 import CapitalInput from '../components/CapitalInput'
 import { monthlyCapital } from '../lib/capital'
@@ -54,6 +55,11 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
   useEffect(() => { storageProtected().then(setProtectedState) }, [])
   const doExport = async () => {
     try { const name = await downloadBackup(settings, rows.length); toast(`Backup saved: ${name}`) } catch { toast('Backup failed', 'error') }
+  }
+  const exportCsv = () => {
+    const all = [...rows].sort((a, b) => a.trade.date.localeCompare(b.trade.date) || (a.trade.id ?? 0) - (b.trade.id ?? 0))
+    downloadText(`trades-all-${new Date().toISOString().slice(0, 10)}.csv`, tradesToCsv(all))
+    toast(`${all.length} trades exported to CSV`)
   }
   const protect = async () => {
     const ok = await requestStorageProtection()
@@ -168,6 +174,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
         <div className="flex flex-wrap gap-2">
           <button className="btn" onClick={doExport}>Back up now</button>
           <button className="btn-ghost" onClick={() => file.current?.click()}>Restore from a backup…</button>
+          <button className="btn-ghost" onClick={exportCsv} disabled={rows.length === 0} title="For Excel or Google Sheets. This is not a backup: it can't be restored into the app.">Export trades (CSV)</button>
           <input ref={file} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />
         </div>
         <label className="flex cursor-pointer items-start gap-2.5 text-sm">

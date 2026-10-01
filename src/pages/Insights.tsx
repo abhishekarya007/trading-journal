@@ -17,6 +17,8 @@ import Tabs from '../components/Tabs'
 import InfoTip from '../components/InfoTip'
 import { tips } from '../lib/glossary'
 import CoachCard from '../components/CoachCard'
+import WhatIfPanel from '../components/WhatIfPanel'
+import ProgressPanel from '../components/ProgressPanel'
 
 const N = ({ v }: { v: number }) => <span className={pnlColor(v)}>{inr(v)}</span>
 function CompareBar({ label, value, max, sub }: { label: string; value: number; max: number; sub?: string }) {
@@ -32,13 +34,15 @@ function CompareBar({ label, value, max, sub }: { label: string; value: number; 
     </div>
   )
 }
-type TabId = 'overview' | 'discipline' | 'behaviour' | 'edge' | 'execution' | 'notes'
+type TabId = 'overview' | 'discipline' | 'behaviour' | 'edge' | 'execution' | 'whatif' | 'progress' | 'notes'
 export const INSIGHT_TABS: { id: TabId; label: string; intro: string }[] = [
   { id: 'overview', label: 'Overview', intro: 'The short version: how your habits look and what to fix first.' },
   { id: 'discipline', label: 'Discipline', intro: 'Do you follow your own rules, and what does it cost when you don’t?' },
   { id: 'behaviour', label: 'Behaviour', intro: 'How you act after losses, on bad days and with position size.' },
   { id: 'edge', label: 'Edge', intro: 'Which setups, stocks and times of day actually make you money.' },
   { id: 'execution', label: 'Execution', intro: 'How well you manage risk: stop-losses, targets, and reward against risk.' },
+  { id: 'whatif', label: 'What if', intro: 'Replay your past trades under rules like “max 3 trades a day” and see what you would have made.' },
+  { id: 'progress', label: 'Progress', intro: 'Your streaks and milestones. Consistency, not one big win, is what builds a trader.' },
   { id: 'notes', label: 'Notes', intro: 'Search what you wrote and see which thoughts show up in winning or losing trades.' },
 ]
 const TABS = INSIGHT_TABS.map(({ id, label }) => ({ id, label }))
@@ -524,6 +528,10 @@ export default function Insights({ rows: allRows, settings, save }: { rows: Row[
         </div>
           </>
         )}
+
+        {tab === 'whatif' && <WhatIfPanel rows={rows} settings={settings} />}
+
+        {tab === 'progress' && <ProgressPanel rows={allRows} settings={settings} />}
 
         {tab === 'notes' && (
         <Card title="Notes" note="Search what you wrote, or tap a recurring word or phrase to see what those trades cost you.">

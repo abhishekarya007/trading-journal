@@ -332,6 +332,7 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
             <Mini label="Best day" value={f.bestDay ? signed(f.bestDay[1]) : '–'} className="text-up" />
             <Mini label="Worst day" value={f.worstDay ? signed(f.worstDay[1]) : '–'} className={f.worstDay && f.worstDay[1] < 0 ? 'text-down' : ''} />
           </div>
+          <button type="button" className="mt-3 self-start text-xs text-accent hover:underline" onClick={() => navigate('/insights?tab=progress')}>Streaks &amp; milestones →</button>
         </div>
       </div>
     </div>

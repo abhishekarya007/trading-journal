@@ -12,6 +12,7 @@ import { IconCopy, IconEdit, IconPlus, IconSearch, IconTrash } from '../componen
 import { summarize } from '../lib/stats'
 import { groupByDay } from '../lib/habits'
 import { toast } from '../lib/toast'
+import { downloadText, tradesToCsv } from '../lib/csv'
 import { duplicateTemplate } from '../lib/tradeText'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
 
@@ -172,6 +173,12 @@ export default function Trades({ rows, settings, refresh }: Props) {
     window.addEventListener('mousedown', close)
     return () => window.removeEventListener('mousedown', close)
   }, [menuFor])
+  const exportCsv = () => {
+    if (!shown.length) return
+    // oldest first reads best in a spreadsheet
+    downloadText(`trades-${anyFilter ? 'filtered-' : ''}${localDate()}.csv`, tradesToCsv([...shown].reverse()))
+    toast(`${shown.length} trade${shown.length === 1 ? '' : 's'} exported to CSV`)
+  }
   const clearFilters = () => { setQ(''); setSetup(''); setFrom(''); setTo(''); setQuick('all') }
 
   const sideText = (t: Trade) => <span className={t.side === 'Long' ? 'text-up' : 'text-down'}>{t.side}</span>
@@ -226,6 +233,7 @@ export default function Trades({ rows, settings, refresh }: Props) {
             <button type="button" className="btn-ghost" aria-expanded={filtersOpen} onClick={() => setShowFilters((v) => !v)}>
               Filters{activeExtra > 0 && <span className="rounded-full bg-accent/25 px-1.5 text-[11px] font-semibold text-accent">{activeExtra}</span>}
             </button>
+            <button type="button" className="btn-ghost" onClick={exportCsv} disabled={!shown.length} title={`Download the ${shown.length} trades shown as a CSV file for Excel or Google Sheets`}>Export CSV</button>
             {anyFilter && <button type="button" className="text-xs text-accent hover:underline" onClick={clearFilters}>Clear</button>}
           </div>
 

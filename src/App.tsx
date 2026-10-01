@@ -19,6 +19,7 @@ import CommandPalette, { type Command } from './components/CommandPalette'
 import Toaster from './components/Toaster'
 import { toast } from './lib/toast'
 import BackupBadge from './components/BackupBadge'
+import { milestones } from './lib/milestones'
 import { backupStatus, downloadBackup, requestStorageProtection, useBackupInfo } from './lib/backup'
 import { INSIGHT_TABS } from './pages/Insights'
 import AnimatedNumber from './components/AnimatedNumber'
@@ -85,6 +86,20 @@ export default function App() {
     () => trades.map((trade) => ({ trade, res: calcTrade(trade, settings.rates) })),
     [trades, settings.rates],
   )
+  // New milestones get a toast. The first time this runs, what you have already reached is recorded silently.
+  useEffect(() => {
+    if (loading) return
+    const reached = milestones(rows, settings, localDate().slice(0, 7)).filter((m) => m.achievedOn)
+    let seen: string[] | null = null
+    try { const raw = localStorage.getItem('tj-milestones-seen'); seen = raw ? (JSON.parse(raw) as string[]) : null } catch { seen = null }
+    const save = (ids: string[]) => { try { localStorage.setItem('tj-milestones-seen', JSON.stringify(ids)) } catch { /* ignore */ } }
+    if (seen === null) { save(reached.map((m) => m.id)); return }
+    const fresh = reached.filter((m) => !seen!.includes(m.id))
+    if (!fresh.length) return
+    save([...new Set([...seen, ...reached.map((m) => m.id)])])
+    fresh.slice(0, 3).forEach((m, i) => setTimeout(() => toast(`🏆 ${m.title}`, 'success', { action: { label: 'View', run: () => navigate('/insights?tab=progress') } }), i * 600))
+  }, [loading, rows, settings, navigate])
+
   const todayKey = localDate()
   const today = useMemo(() => summarize(rows.filter((r) => r.trade.date === todayKey)), [rows, todayKey])
 
