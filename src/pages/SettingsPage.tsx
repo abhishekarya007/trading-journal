@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChargeRates, Settings, WeeklyReview } from '../lib/types'
 import { db, exportJson, importJson, mergeBackup } from '../lib/db'
-import { mergeSettings, parseBackup, type ParsedBackup } from '../lib/backupMerge'
+import { formatBytes, mergeSettings, parseBackup, screenshotStats, type ParsedBackup } from '../lib/backupMerge'
 import ImportDialog, { type ImportMode } from '../components/ImportDialog'
 import { DEFAULT_SETTINGS } from '../lib/defaults'
 
@@ -19,7 +19,7 @@ import PageTitle from '../components/PageTitle'
 import { toast } from '../lib/toast'
 import { downloadText, tradesToCsv } from '../lib/csv'
 import { chime } from '../lib/cooldown'
-import { agoText, backupStatus, downloadBackup, requestStorageProtection, setAutoBackup, storageProtected, useBackupInfo } from '../lib/backup'
+import { agoText, backupStatus, downloadBackup, requestStorageProtection, setAutoBackup, setBackupScreenshots, storageProtected, useBackupInfo } from '../lib/backup'
 import CapitalInput from '../components/CapitalInput'
 import { monthlyCapital } from '../lib/capital'
 import { localDate } from '../lib/week'
@@ -74,8 +74,10 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
   const st = backupStatus(rows.length, info, Date.now())
   const [protectedState, setProtectedState] = useState<boolean | null>(null)
   useEffect(() => { storageProtected().then(setProtectedState) }, [])
-  const doExport = async () => {
-    try { const name = await downloadBackup(settings, rows.length); toast(`Backup saved: ${name}`) } catch { toast('Backup failed', 'error') }
+  const shots = screenshotStats(rows.map((r) => r.trade))
+  const liteBase = rows.length * 500 + 2000 // rough size of a backup without images (measured: about 440 bytes a trade)
+  const doExport = async (screenshots?: boolean) => {
+    try { const name = await downloadBackup(settings, rows.length, Date.now(), screenshots === undefined ? {} : { screenshots }); toast(`Backup saved: ${name}`) } catch { toast('Backup failed', 'error') }
   }
   const exportCsv = () => {
     const all = [...rows].sort((a, b) => a.trade.date.localeCompare(b.trade.date) || (a.trade.id ?? 0) - (b.trade.id ?? 0))
@@ -244,9 +246,24 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
           <span className={`h-2 w-2 rounded-full ${st.state === 'ok' ? 'bg-up' : st.state === 'due' ? 'bg-warn' : st.state === 'empty' ? 'bg-muted/50' : 'bg-down'}`} />
           <span className="font-medium">{st.state === 'empty' ? 'No trades yet' : st.state === 'never' ? 'Never backed up' : `Last backup: ${agoText(st.days)}`}</span>
           {st.state !== 'empty' && <span className="text-xs text-muted">{st.newSince > 0 ? `${st.newSince} trade${st.newSince === 1 ? '' : 's'} added since` : 'everything is saved'}</span>}
+          {st.state !== 'empty' && st.state !== 'never' && info.lite && shots.images > 0 && <span className="text-xs text-warn">· without screenshots</span>}
+        </div>
+        <div>
+          <div className="label">Backup type</div>
+          <div className="seg w-full max-w-lg" role="group" aria-label="Backup type">
+            <button className="flex-1" aria-pressed={info.screenshots} onClick={() => setBackupScreenshots(true)}>Full · with screenshots</button>
+            <button className="flex-1" aria-pressed={!info.screenshots} onClick={() => setBackupScreenshots(false)}>Lite · without screenshots</button>
+          </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted">
+            {shots.images === 0
+              ? 'You have no screenshots yet, so both kinds are the same.'
+              : <>You have <b className="text-fg">{shots.images}</b> screenshot{shots.images === 1 ? '' : 's'} ({formatBytes(shots.bytes)}). A full backup is about <b className="text-fg">{formatBytes(shots.bytes + liteBase)}</b>; a lite one is about <b className="text-fg">{formatBytes(liteBase)}</b> and opens instantly. This choice is used by every backup button and by automatic backups.</>}
+          </p>
+          {!info.screenshots && shots.images > 0 && <p className="mt-1 text-xs text-warn">⚠ Lite backups do not contain your screenshots. Keep an occasional full backup too.</p>}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn" onClick={doExport}>Back up now</button>
+          <button className="btn" onClick={() => doExport()}>Back up now ({info.screenshots ? 'full' : 'lite'})</button>
+          <button className="btn-ghost" onClick={() => doExport(!info.screenshots)} disabled={shots.images === 0} title={shots.images === 0 ? 'You have no screenshots, so there is no difference' : 'Download the other kind once, without changing your choice'}>Save a {info.screenshots ? 'lite' : 'full'} copy once</button>
           <button className="btn-ghost" onClick={() => file.current?.click()}>Restore from a backup…</button>
           <button className="btn-ghost" onClick={exportCsv} disabled={rows.length === 0} title="For Excel or Google Sheets. This is not a backup: it can't be restored into the app.">Export trades (CSV)</button>
           <input ref={file} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = '' }} />

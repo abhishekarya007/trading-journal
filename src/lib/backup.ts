@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Settings } from './types'
 import { exportJson } from './db'
 
-const K = { at: 'tj-last-backup', count: 'tj-last-backup-count', auto: 'tj-auto-backup', snooze: 'tj-backup-snooze' }
+const K = { at: 'tj-last-backup', count: 'tj-last-backup-count', auto: 'tj-auto-backup', snooze: 'tj-backup-snooze', shots: 'tj-backup-shots', lite: 'tj-last-backup-lite' }
 export const DAY = 86_400_000
 
 const read = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
@@ -13,6 +13,8 @@ export interface BackupInfo {
   count: number // how many trades it contained
   auto: boolean // download a backup automatically when one is due
   snoozedUntil: number
+  screenshots: boolean // include screenshots in backups (the default kind)
+  lite: boolean // the LAST backup was made without screenshots
 }
 
 export function readBackupInfo(): BackupInfo {
@@ -22,6 +24,8 @@ export function readBackupInfo(): BackupInfo {
     count: Number(read(K.count)) || 0,
     auto: read(K.auto) === '1',
     snoozedUntil: Number(read(K.snooze)) || 0,
+    screenshots: read(K.shots) !== '0',
+    lite: read(K.lite) === '1',
   }
 }
 
@@ -56,13 +60,15 @@ export function useBackupInfo() {
 }
 
 export function setAutoBackup(on: boolean) { write(K.auto, on ? '1' : '0'); notify() }
+export function setBackupScreenshots(on: boolean) { write(K.shots, on ? '1' : '0'); notify() }
 export function snoozeBackup(days = 2, now = Date.now()) { write(K.snooze, String(now + days * DAY)); notify() }
 
 /** Saves everything (trades, reviews, settings) as a JSON file download and records that a backup was made. */
-export async function downloadBackup(settings: Settings, tradeCount: number, now = Date.now()): Promise<string> {
-  const text = await exportJson(settings)
+export async function downloadBackup(settings: Settings, tradeCount: number, now = Date.now(), opts: { screenshots?: boolean } = {}): Promise<string> {
+  const shots = opts.screenshots ?? readBackupInfo().screenshots // the saved choice unless told otherwise
+  const text = await exportJson(settings, { screenshots: shots })
   const stamp = new Date(now)
-  const name = `trading-journal-${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')}.json`
+  const name = `trading-journal-${stamp.getFullYear()}-${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')}${shots ? '' : '-lite'}.json`
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
   const a = document.createElement('a')
   a.href = url
@@ -73,6 +79,7 @@ export async function downloadBackup(settings: Settings, tradeCount: number, now
   setTimeout(() => URL.revokeObjectURL(url), 1000)
   write(K.at, String(now))
   write(K.count, String(tradeCount))
+  write(K.lite, shots ? '0' : '1')
   write(K.snooze, '0')
   notify()
   return name

@@ -102,3 +102,33 @@ describe('normalizeSettings', () => {
     expect(normalizeSettings(null)).toEqual(DEFAULT_SETTINGS)
   })
 })
+
+import { formatBytes, screenshotStats, stripScreenshots } from './backupMerge'
+describe('screenshots in backups', () => {
+  const withShots = (n: number) => t({ screenshots: Array.from({ length: n }, () => 'data:image/jpeg;base64,' + 'A'.repeat(1000)) })
+  it('strips screenshots without touching anything else, and without changing the originals', () => {
+    const src = [withShots(2), t({ symbol: 'NOSHOT' })]
+    const lite = stripScreenshots(src)
+    expect(lite.every((x) => !('screenshots' in x))).toBe(true)
+    expect(lite[0]).toMatchObject({ symbol: 'TCS', qty: 10, setup: 'Gap' })
+    expect(src[0].screenshots).toHaveLength(2)
+  })
+  it('counts images and their size', () => {
+    const s = screenshotStats([withShots(2), withShots(1), t()])
+    expect(s.images).toBe(3)
+    expect(s.bytes).toBe(3 * ('data:image/jpeg;base64,'.length + 1000))
+    expect(screenshotStats([])).toEqual({ images: 0, bytes: 0 })
+  })
+  it('formats sizes plainly', () => {
+    expect(formatBytes(512)).toBe('512 B')
+    expect(formatBytes(40 * 1024)).toBe('40 KB')
+    expect(formatBytes(1.5 * 1024 * 1024)).toBe('1.5 MB')
+  })
+  it('parseBackup reports how many screenshots a file holds and whether it is a lite backup', () => {
+    const full = parseBackup(JSON.stringify({ screenshots: true, trades: [withShots(2), t()] }))
+    expect(full).toMatchObject({ screenshotCount: 2, lite: false })
+    const lite = parseBackup(JSON.stringify({ screenshots: false, trades: stripScreenshots([withShots(2)]) }))
+    expect(lite).toMatchObject({ screenshotCount: 0, lite: true })
+    expect(parseBackup(JSON.stringify({ trades: [t()] }))).toMatchObject({ screenshotCount: 0, lite: false }) // older files: no flag
+  })
+})

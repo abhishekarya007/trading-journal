@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import { useEffect, useState, useCallback } from 'react'
 import type { Settings, Trade, WeeklyReview } from './types'
 import { DEFAULT_SETTINGS } from './defaults'
-import { normalizeSettings, parseBackup, newTrades, mergeReviews, type ParsedBackup } from './backupMerge'
+import { normalizeSettings, parseBackup, newTrades, mergeReviews, stripScreenshots, type ParsedBackup } from './backupMerge'
 
 class JournalDB extends Dexie {
   trades!: Table<Trade, number>
@@ -43,10 +43,13 @@ export function useTrades() {
   return { trades: trades ?? [], loading: trades === null, refresh }
 }
 
-export async function exportJson(settings: Settings) {
-  const trades = await db.trades.toArray()
+/** Everything as JSON. Pass { screenshots: false } for a much smaller "lite" backup without the images. */
+export async function exportJson(settings: Settings, opts: { screenshots?: boolean } = {}) {
+  const withShots = opts.screenshots !== false
+  const all = await db.trades.toArray()
+  const trades = withShots ? all : stripScreenshots(all)
   const reviews = await db.reviews.toArray()
-  return JSON.stringify({ version: 2, settings, trades, reviews }, null, 2)
+  return JSON.stringify({ version: 2, screenshots: withShots, settings, trades, reviews }, null, 2)
 }
 
 /** Replaces EVERYTHING (trades, reviews, settings) with the backup. Also used to undo an import. */

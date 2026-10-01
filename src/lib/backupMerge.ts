@@ -16,6 +16,8 @@ export function normalizeSettings(s: Partial<Settings> | null | undefined): Sett
 
 export interface ParsedBackup {
   trades: Trade[] // valid trades, without ids
+  screenshotCount: number // images inside the file
+  lite: boolean // the file was saved without screenshots on purpose
   reviews: WeeklyReview[]
   settings: Partial<Settings> | null
   invalid: number // trades in the file that were unusable and left out
@@ -42,7 +44,8 @@ export function parseBackup(text: string): ParsedBackup {
   const reviews = (Array.isArray(d.reviews) ? d.reviews : [])
     .filter((r): r is WeeklyReview => !!r && isDate((r as WeeklyReview).weekStart))
     .map((r) => ({ weekStart: r.weekStart, wentWell: r.wentWell ?? '', improve: r.improve ?? '', focus: r.focus ?? '' }))
-  return { trades, reviews, settings: d.settings && typeof d.settings === 'object' ? (d.settings as Partial<Settings>) : null, invalid }
+  const screenshotCount = trades.reduce((n, t) => n + (Array.isArray(t.screenshots) ? t.screenshots.length : 0), 0)
+  return { trades, screenshotCount, lite: (data as { screenshots?: unknown }).screenshots === false, reviews, settings: d.settings && typeof d.settings === 'object' ? (d.settings as Partial<Settings>) : null, invalid }
 }
 
 /** Two trades are "the same" when these match. Time is normalised so 9:15 and 09:15 agree. */
@@ -99,4 +102,22 @@ export function mergeSettings(current: Settings, incoming: Partial<Settings> | n
     monthGoal: { ...(incoming.monthGoal ?? {}), ...current.monthGoal },
     monthMaxLoss: { ...(incoming.monthMaxLoss ?? {}), ...current.monthMaxLoss },
   }
+}
+
+/** The same trades with their screenshots removed (for a "lite" backup). */
+export const stripScreenshots = (trades: Trade[]): Trade[] => trades.map(({ screenshots: _s, ...t }) => t)
+
+/** How many screenshots there are and roughly how many bytes they add to a JSON backup (they are stored as text). */
+export function screenshotStats(trades: Trade[]) {
+  let images = 0
+  let bytes = 0
+  for (const t of trades) for (const s of t.screenshots ?? []) { images++; bytes += s.length }
+  return { images, bytes }
+}
+
+/** 1536000 -> "1.5 MB", 40_000 -> "40 KB". */
+export function formatBytes(n: number) {
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }

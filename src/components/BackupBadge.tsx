@@ -18,7 +18,7 @@ export default function BackupBadge({ count, settings, compact }: { count: numbe
   }
 
   if (compact) {
-    const tip = st.state === 'empty' ? 'Nothing to back up yet' : `${st.state === 'never' ? 'Not backed up yet' : `Backed up ${agoText(st.days)}`}${st.newSince > 0 ? `, ${st.newSince} trade${st.newSince === 1 ? '' : 's'} not saved` : ''}. Click to back up now.`
+    const tip = st.state === 'empty' ? 'Nothing to back up yet' : `${st.state === 'never' ? 'Not backed up yet' : `Backed up ${agoText(st.days)}`}${st.newSince > 0 ? `, ${st.newSince} trade${st.newSince === 1 ? '' : 's'} not saved` : ''}. Click for a ${info.screenshots ? 'full' : 'lite, no-screenshots'} backup.`
     return (
       <button type="button" onClick={run} disabled={busy || st.state === 'empty'} title={tip} aria-label={tip}
         className="mx-auto flex h-11 w-full items-center justify-center rounded-xl border border-line bg-panel2/50 transition hover:border-accent/50 disabled:opacity-60">
@@ -37,7 +37,7 @@ export default function BackupBadge({ count, settings, compact }: { count: numbe
         </div>
       </div>
       {st.state !== 'empty' && (
-        <button type="button" className="btn-ghost !px-2 !py-1 text-[11px]" onClick={run} disabled={busy} title="Download a backup file of all your data">
+        <button type="button" className="btn-ghost !px-2 !py-1 text-[11px]" onClick={run} disabled={busy} title={`Download a ${info.screenshots ? 'full' : 'lite (no screenshots)'} backup of all your data`}>
           {busy ? '…' : 'Back up'}
         </button>
       )}

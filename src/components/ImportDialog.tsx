@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Trade, WeeklyReview } from '../lib/types'
-import { mergeReviews, newTrades, type ParsedBackup } from '../lib/backupMerge'
+import { mergeReviews, newTrades, screenshotStats, type ParsedBackup } from '../lib/backupMerge'
 import Modal from './Modal'
 
 export type ImportMode = 'merge' | 'replace'
@@ -22,6 +22,8 @@ export default function ImportDialog({ parsed, existing, existingReviews, fileNa
   const plan = useMemo(() => newTrades(existing, parsed.trades), [existing, parsed.trades])
   const reviews = useMemo(() => mergeReviews(existingReviews, parsed.reviews), [existingReviews, parsed.reviews])
   const reviewChanges = reviews.added + reviews.filled
+  const myShots = useMemo(() => screenshotStats(existing).images, [existing])
+  const losesShots = parsed.screenshotCount === 0 && myShots > 0
   const nothingNew = plan.add.length === 0 && reviews.put.length === 0
 
   const Option = ({ id, title, tag, children }: { id: ImportMode; title: string; tag?: string; children: React.ReactNode }) => (
@@ -42,7 +44,7 @@ export default function ImportDialog({ parsed, existing, existingReviews, fileNa
         <div className="rounded-xl border border-line bg-panel2/40 p-3.5 text-sm">
           <div className="truncate font-medium">{fileName}</div>
           <p className="mt-1 text-xs text-muted">
-            {plural(parsed.trades.length, 'trade')}, {plural(parsed.reviews.length, 'weekly review')}
+            {plural(parsed.trades.length, 'trade')}, {plural(parsed.reviews.length, 'weekly review')}, {parsed.screenshotCount > 0 ? plural(parsed.screenshotCount, 'screenshot') : parsed.lite ? 'no screenshots (a lite backup)' : 'no screenshots'}
             {parsed.invalid > 0 && <> · <span className="text-warn">{plural(parsed.invalid, 'unreadable trade')} will be skipped</span></>}
           </p>
         </div>
@@ -57,6 +59,7 @@ export default function ImportDialog({ parsed, existing, existingReviews, fileNa
           </Option>
           <Option id="replace" title="Replace everything">
             Removes your current {plural(existing.length, 'trade')}, weekly reviews and settings first, then loads the file. Use this to set up a new computer or to go back to an earlier state.
+            {losesShots && <span className="mt-1 block font-medium text-warn">⚠ This file has no screenshots, so your {plural(myShots, 'current screenshot')} would be removed. Choose Add instead to keep them.</span>}
           </Option>
         </div>
 
