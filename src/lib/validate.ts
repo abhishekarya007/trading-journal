@@ -31,7 +31,7 @@ export function validateTrade(t: Trade, existing: Trade[], today: string): Valid
     if (dow === 0 || dow === 6) warnings.push('That date is a weekend, when NSE is closed.')
   }
   if ((inT !== null && (inT < OPEN || inT > CLOSE)) || (outT !== null && (outT < OPEN || outT > CLOSE)))
-    warnings.push('A time is outside NSE trading hours (09:15 to 15:30).')
+    warnings.push('A time is outside NSE trading hours (9:15 AM to 3:30 PM).')
 
   const long = t.side === 'Long'
   if (t.entryPrice > 0) {

@@ -28,7 +28,7 @@ describe('duplicateTemplate', () => {
 describe('tradeSummary', () => {
   it('includes the key facts and skips empty parts', () => {
     const s = tradeSummary({ trade: t, res: calcTrade(t, DEFAULT_SETTINGS.rates) })
-    expect(s).toContain('TCS LONG · 2026-09-01 10:17–11:16')
+    expect(s).toContain('TCS LONG · 2026-09-01 10:17 AM – 11:16 AM')
     expect(s).toContain('Entry 137 → Exit 139.74')
     expect(s).toContain('SL 135.63 · Target 141.11')
     expect(s).toContain('held 59m')
