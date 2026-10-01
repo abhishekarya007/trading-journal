@@ -65,7 +65,7 @@ export default function Modal({ title, onClose, children, size = 'lg', z = 50, c
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : 'Dialog'}
         tabIndex={-1}
-        className={`rise flex max-h-[92vh] w-full supports-[height:1dvh]:max-h-[92dvh] ${SIZES[size]} flex-col overflow-hidden rounded-t-2xl border border-line bg-panel/95 shadow-2xl backdrop-blur-2xl outline-none md:rounded-2xl`}
+        className={`rise sheet flex max-h-[92vh] w-full supports-[height:1dvh]:max-h-[92dvh] ${SIZES[size]} flex-col overflow-hidden rounded-t-2xl border border-line bg-panel/95 shadow-2xl backdrop-blur-2xl outline-none md:rounded-2xl`}
       >
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <div className="min-w-0 text-base font-semibold">{title}</div>

@@ -7,6 +7,7 @@ import { chronological } from '../lib/insights'
 import { addDays, localDate, weekDays, weekStart } from '../lib/week'
 import { inr, pnlColor } from '../lib/format'
 import { axisTick, COLORS, tooltipStyle } from '../lib/theme'
+import { useAccentColors } from '../lib/appearance'
 import { nseStatus } from '../lib/market'
 import { evaluateDay } from '../lib/risk'
 import { monthlyCapital } from '../lib/capital'
@@ -73,6 +74,7 @@ function form(rows: Row[]) {
 
 export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; settings: Settings; onAdd: () => void }) {
   const navigate = useNavigate()
+  const accentC = useAccentColors()
   const [range, setRange] = useState<(typeof RANGES)[number][0]>('All')
   const [perf, setPerf] = useState<PerfTab>(() => {
     try { const v = localStorage.getItem('tj-perf-tab'); return PERF_TABS.some((t) => t.id === v) ? (v as PerfTab) : 'equity' } catch { return 'equity' }
@@ -241,19 +243,19 @@ export default function Dashboard({ rows, settings, onAdd }: { rows: Row[]; sett
                 <AreaChart data={shownCurve} syncId="eq">
                   <defs>
                     <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COLORS.accent} stopOpacity={0.4} />
-                      <stop offset="100%" stopColor={COLORS.accent2} stopOpacity={0} />
+                      <stop offset="0%" stopColor={accentC.accent} stopOpacity={0.4} />
+                      <stop offset="100%" stopColor={accentC.accent2} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="eqStroke" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor={COLORS.accent} />
-                      <stop offset="100%" stopColor={COLORS.accent2} />
+                      <stop offset="0%" stopColor={accentC.accent} />
+                      <stop offset="100%" stopColor={accentC.accent2} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke={COLORS.grid} vertical={false} />
                   <XAxis dataKey="date" hide />
                   <YAxis tick={axisTick} width={64} domain={['auto', 'auto']} tickLine={false} axisLine={false} tickFormatter={(v) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(Math.round(v))} />
                   <Tooltip {...tooltipStyle} formatter={(v) => [inr(Number(v)), 'Cumulative P&L']} />
-                  <Area dataKey="equity" stroke="url(#eqStroke)" strokeWidth={2.5} fill="url(#eqFill)" activeDot={{ r: 5, strokeWidth: 0, fill: COLORS.accent }} />
+                  <Area dataKey="equity" stroke="url(#eqStroke)" strokeWidth={2.5} fill="url(#eqFill)" activeDot={{ r: 5, strokeWidth: 0, fill: accentC.accent }} />
                 </AreaChart>
               </ResponsiveContainer>
               <div className="mt-1 flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted"><span className="h-1.5 w-1.5 rounded-full bg-down" /> Drawdown</div>

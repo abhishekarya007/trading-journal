@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import Tabs from '../components/Tabs'
+import { ACCENTS, setAppearance, TEXT_SIZES, useAppearance, useTheme } from '../lib/appearance'
+import { SECTIONS, SETTINGS_TABS, searchSettings, type SectionId, type SettingsTab } from '../lib/settingsSearch'
 import type { ChargeRates, Settings, WeeklyReview } from '../lib/types'
 import { db, exportJson, importJson, mergeBackup } from '../lib/db'
 import { formatBytes, mergeSettings, parseBackup, screenshotStats, type ParsedBackup } from '../lib/backupMerge'
@@ -69,6 +73,17 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
     else next[m] = v
     save({ ...settings, monthMaxLoss: next })
   }
+  const [params, setParams] = useSearchParams()
+  const tab: SettingsTab = SETTINGS_TABS.some((t) => t.id === params.get('tab')) ? (params.get('tab') as SettingsTab) : 'general'
+  const setTab = (t: SettingsTab) => { setQuery(''); setParams(t === 'general' ? {} : { tab: t }, { replace: true }) }
+  const [query, setQuery] = useState('')
+  const hits = searchSettings(query)
+  const searching = query.trim() !== ''
+  // While searching, show every matching section whatever tab it lives on.
+  const show = (id: SectionId) => (searching ? hits.includes(id) : SECTIONS.find((s) => s.id === id)?.tab === tab)
+  const look = useAppearance()
+  const { dark, setDark } = useTheme()
+
   const list = (v: string) => v.split(',').map((x) => x.trim()).filter(Boolean)
 
   const info = useBackupInfo()
@@ -128,15 +143,14 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
   return (
     <div className="space-y-4">
       <PageTitle title="Settings" sub="Capital, risk rules, charge rates and backup" />
-      <div className="card space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Tabs tabs={SETTINGS_TABS} value={tab} onChange={setTab} label="Settings sections" />
+        <input type="search" className="input !w-full sm:!w-56" placeholder="Search settings…" aria-label="Search settings" value={query} onChange={(e) => setQuery(e.target.value)} />
+      </div>
+      {searching && hits.length === 0 && <p className="card py-6 text-center text-sm text-muted">No setting matches “{query}”.</p>}
+      {show('general') && <div className="card space-y-3">
         <h2 className="text-sm font-semibold">General</h2>
         <div className="grid gap-3 md:grid-cols-3">
-          <div><label className="label">Default trading capital (₹) · per month</label>
-            <input type="number" className="input" value={settings.startingCapital} onChange={(e) => save({ ...settings, startingCapital: Number(e.target.value) })} /></div>
-          <div><label className="label">Default monthly profit goal (₹) · 0 = none</label>
-            <input type="number" min={0} className="input" value={settings.goals.profit} onChange={(e) => save({ ...settings, goals: { ...settings.goals, profit: Number(e.target.value) } })} /></div>
-          <div><label className="label">Default monthly loss limit (₹) · 0 = none</label>
-            <input type="number" min={0} className="input" value={settings.goals.maxLoss} onChange={(e) => save({ ...settings, goals: { ...settings.goals, maxLoss: Number(e.target.value) } })} /></div>
           <div><label className="label">Setups (comma separated)</label>
             <input className="input" defaultValue={settings.setups.join(', ')} onBlur={(e) => save({ ...settings, setups: list(e.target.value) })} /></div>
           <div><label className="label">Mistake tags (comma separated)</label>
@@ -145,9 +159,45 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
             <input className="input" defaultValue={settings.exitMistakes.join(', ')} onBlur={(e) => save({ ...settings, exitMistakes: list(e.target.value) })} />
             <p className="mt-1 text-[11px] text-muted">Counted, but not priced or used to remove trades from the disciplined comparison.</p></div>
         </div>
-      </div>
+      </div>}
 
-      <div className="card space-y-3">
+      {show('defaults') && <div className="card space-y-3">
+        <h2 className="text-sm font-semibold">Defaults</h2>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div><label className="label">Default trading capital (₹) · per month</label>
+            <input type="number" className="input" value={settings.startingCapital} onChange={(e) => save({ ...settings, startingCapital: Number(e.target.value) })} /></div>
+          <div><label className="label">Default monthly profit goal (₹) · 0 = none</label>
+            <input type="number" min={0} className="input" value={settings.goals.profit} onChange={(e) => save({ ...settings, goals: { ...settings.goals, profit: Number(e.target.value) } })} /></div>
+          <div><label className="label">Default monthly loss limit (₹) · 0 = none</label>
+            <input type="number" min={0} className="input" value={settings.goals.maxLoss} onChange={(e) => save({ ...settings, goals: { ...settings.goals, maxLoss: Number(e.target.value) } })} /></div>
+        </div>
+      </div>}
+
+      {show('appearance') && <div className="card space-y-4">
+        <h2 className="text-sm font-semibold">Appearance</h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div><span className="label">Theme</span>
+            <div className="seg" role="group" aria-label="Theme">
+              <button type="button" aria-pressed={dark} onClick={() => setDark(true)}>Dark</button>
+              <button type="button" aria-pressed={!dark} onClick={() => setDark(false)}>Light</button>
+            </div></div>
+          <div><span className="label">Text size</span>
+            <div className="seg" role="group" aria-label="Text size">
+              {TEXT_SIZES.map((t) => <button key={t.id} type="button" aria-pressed={look.text === t.id} onClick={() => setAppearance({ text: t.id })}>{t.label}</button>)}
+            </div></div>
+          <div><span className="label">Accent colour</span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Accent colour">
+              {ACCENTS.map((a) => (
+                <button key={a.id} type="button" aria-pressed={look.accent === a.id} onClick={() => setAppearance({ accent: a.id })}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm transition ${look.accent === a.id ? 'border-accent bg-accent/15' : 'border-line hover:border-accent/50'}`}>
+                  <span className="h-3.5 w-3.5 rounded-full" style={{ background: a.swatch }} />{a.label}
+                </button>
+              ))}
+            </div></div>
+        </div>
+      </div>}
+
+      {show('monthly') && <div className="card space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Monthly capital, goal &amp; loss limit</h2>
           <p className="mt-0.5 text-xs text-muted">
@@ -178,9 +228,9 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
             </table>
           </div>
         )}
-      </div>
+      </div>}
 
-      <div className="card space-y-3">
+      {show('risk') && <div className="card space-y-3">
         <h2 className="text-sm font-semibold">Risk rules <span className="text-xs font-normal text-muted">(0 turns a rule off)</span></h2>
         <div className="grid gap-3 md:grid-cols-3">
           {([['dailyLossLimit', 'Daily loss limit (₹)'], ['maxConsecutiveLosses', 'Max consecutive losses'], ['maxTradesPerDay', 'Max trades per day']] as const).map(([k, label]) => (
@@ -189,9 +239,9 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
                 onChange={(e) => save({ ...settings, risk: { ...settings.risk, [k]: Number(e.target.value) } })} /></div>
           ))}
         </div>
-      </div>
+      </div>}
 
-      <div className="card space-y-3">
+      {show('charges') && <div className="card space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Charge rates</h2>
           <button className="btn-ghost" onClick={() => save({ ...settings, rates: DEFAULT_SETTINGS.rates })}>Reset to defaults</button>
@@ -204,9 +254,9 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
                 onChange={(e) => save({ ...settings, rates: { ...settings.rates, [k]: Number(e.target.value) } })} /></div>
           ))}
         </div>
-      </div>
+      </div>}
 
-      <div className="card space-y-3">
+      {show('cooldown') && <div className="card space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Cooldown timer</h2>
           <p className="mt-0.5 text-xs text-muted">A break timer for after a stop-loss. Start it from the menu or press <span className="kbd">C</span>.</p>
@@ -237,9 +287,9 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
           <span>Show a browser notification when it ends<span className="block text-xs text-muted">Useful when this tab is in the background. Your browser will ask for permission.</span></span>
         </label>
         <button type="button" className="btn-ghost text-xs" onClick={() => { chime(); toast('That is the chime.', 'info') }}>Test the chime</button>
-      </div>
+      </div>}
 
-      <div className="card space-y-3">
+      {show('sound') && <div className="card space-y-3">
         <div>
           <h2 className="text-sm font-semibold">Sound &amp; haptics</h2>
           <p className="mt-0.5 text-xs text-muted">A soft sound, and a short vibration on phones that support it, whenever a confirmation message appears: a trade added, deleted, copied, saved.</p>
@@ -266,9 +316,9 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
             <button key={k} type="button" className="btn-ghost !px-3 !py-1 text-xs" onClick={() => { playSound(k, fb.volume); vibrate(k) }}>{k[0].toUpperCase() + k.slice(1)}</button>
           ))}
         </div>
-      </div>
+      </div>}
 
-      <div className="card space-y-2">
+      {show('backup') && <div className="card space-y-2">
         <h2 className="text-sm font-semibold">Backup</h2>
         <p className="text-xs leading-relaxed text-muted">
           Your trades live only in this browser. A backup is one file holding everything (trades, reviews and settings). Keep it in Google Drive or on a USB drive and you can restore it on any computer.
@@ -311,7 +361,7 @@ export default function SettingsPage({ rows, settings, save, refresh }: Props) {
           {protectedState === false && <button type="button" className="btn-ghost !px-2.5 !py-1 text-xs" onClick={protect}>Turn on</button>}
         </div>
         {msg && <p className="text-sm">{msg}</p>}
-      </div>
+      </div>}
     </div>
   )
 }

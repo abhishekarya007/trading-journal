@@ -9,8 +9,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <script>
-      // Dark by default; avoid a flash if the user chose light.
+      // Dark by default; apply the saved theme and appearance before the first paint so nothing flashes.
       try { if (localStorage.getItem('tj-dark') === '0') document.documentElement.classList.remove('dark') } catch (e) {}
+      try {
+        var a = JSON.parse(localStorage.getItem('tj-appearance') || 'null') || {}
+        var h = document.documentElement
+        h.dataset.accent = a.accent || 'blue'; h.dataset.text = a.text || 'normal'
+      } catch (e) {}
     </script>
   </head>
   <body>

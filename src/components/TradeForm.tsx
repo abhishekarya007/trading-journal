@@ -177,7 +177,8 @@ export default function TradeForm({ settings, initial, prefill, rows, onSave, on
           {check.warnings.map((m) => <li key={m} className="text-warn">⚠ {m}</li>)}
         </ul>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Sticks to the bottom of the modal so Add/Update is always reachable on a phone. */}
+      <div className="sticky -bottom-4 z-10 -mx-5 -mb-4 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-panel px-5 py-3">
         <div className="text-sm">
           {preview ? (
             <>Gross {inr(preview.gross, 2)} · Charges {inr(preview.charges.total, 2)} · <b className={pnlColor(preview.net)}>Net {inr(preview.net, 2)}</b>

@@ -16,10 +16,13 @@ import Report from './pages/Report'
 import SettingsPage from './pages/SettingsPage'
 import Ticker, { type Tick } from './components/Ticker'
 import CommandPalette, { type Command } from './components/CommandPalette'
+import ShortcutsModal from './components/ShortcutsModal'
+import PageSkeleton from './components/PageSkeleton'
 import Toaster from './components/Toaster'
 import { toast } from './lib/toast'
 import BackupBadge from './components/BackupBadge'
 import { milestones } from './lib/milestones'
+import { THEME_EVENT } from './lib/appearance'
 import CooldownCard from './components/CooldownCard'
 import CooldownModal from './components/CooldownModal'
 import { chime, formatClock, OPEN_EVENT, startCooldown, stopCooldown, useCooldown } from './lib/cooldown'
@@ -55,6 +58,12 @@ export default function App() {
   const { trades, loading, refresh } = useTrades()
   const [palette, setPalette] = useState(false)
   const [cooldownOpen, setCooldownOpen] = useState(false)
+  const [shortcuts, setShortcuts] = useState(false)
+  useEffect(() => {
+    const f = (e: Event) => setDark(Boolean((e as CustomEvent<boolean>).detail))
+    window.addEventListener(THEME_EVENT, f)
+    return () => window.removeEventListener(THEME_EVENT, f)
+  }, [])
   const cooldown = useCooldown()
   // The sidebar can shrink to an icons-only rail to give pages more room. The choice is remembered.
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('tj-sidebar') === '1' } catch { return false } })
@@ -140,6 +149,7 @@ export default function App() {
       else if (e.key === '/') { e.preventDefault(); setPalette(true) }
       else if (e.key === '[') { e.preventDefault(); toggleSidebar() }
       else if (e.key === 'c') { e.preventDefault(); setCooldownOpen(true) }
+      else if (e.key === '?') { e.preventDefault(); setShortcuts(true) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -181,6 +191,7 @@ export default function App() {
         run: () => { if (!cooldown.active) startCooldown(settings.cooldown.minutes); setCooldownOpen(true) } },
       ...(cooldown.active ? [{ id: 'cooldown-end', group: 'Actions', label: 'End the cooldown', icon: <IconTimer />, run: stopCooldown }] : []),
       { id: 'sidebar', group: 'Actions', label: collapsed ? 'Expand the menu' : 'Collapse the menu to icons', hint: '[', icon: collapsed ? <IconChevRight /> : <IconChevLeft />, run: toggleSidebar },
+      { id: 'shortcuts', group: 'Actions', label: 'Keyboard shortcuts', hint: '?', icon: <IconSearch />, run: () => setShortcuts(true) },
       { id: 'theme', group: 'Actions', label: `Switch to ${dark ? 'light' : 'dark'} theme`, icon: dark ? <IconSun /> : <IconMoon />, run: () => setDark((d) => !d) },
       ...links.map((l) => ({ id: `nav${l.to}`, group: 'Go to', label: l.label, icon: <l.Icon />, run: go(l.to) })),
       ...INSIGHT_TABS.filter((t) => t.id !== 'overview').map((t) => ({ id: `ins${t.id}`, group: 'Go to', label: `Insights › ${t.label}`, icon: <IconInsights />, run: () => navigate(`/insights?tab=${t.id}`) })),
@@ -238,7 +249,7 @@ export default function App() {
             <button onClick={() => setPalette(true)} className="mb-5 flex w-full items-center gap-2 rounded-xl border border-line bg-panel2/50 px-3 py-2 text-sm text-muted transition hover:border-accent/50 hover:text-fg">
               <IconSearch /> <span className="flex-1 text-left">Search…</span> <span className="kbd">⌘K</span>
             </button>
-            <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted/80">Menu</div>
+            <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted">Menu</div>
           </>
         )}
 
@@ -312,7 +323,7 @@ export default function App() {
             <button className="btn-ghost" onClick={removeLegacy}>Delete them</button>
           </div>
         )}
-        {loading ? <p className="text-sm text-muted">Loading…</p> : (
+        {loading ? <PageSkeleton /> : (
           <div className="page">
             <Routes>
               <Route path="/" element={<Dashboard rows={rows} settings={settings} onAdd={addTrade} />} />
@@ -340,6 +351,7 @@ export default function App() {
       </nav>
 
       {cooldownOpen && <CooldownModal settings={settings} onClose={() => setCooldownOpen(false)} />}
+      {shortcuts && <ShortcutsModal onClose={() => setShortcuts(false)} />}
       <CommandPalette open={palette} onClose={() => setPalette(false)} commands={commands} />
       <Toaster />
     </div>

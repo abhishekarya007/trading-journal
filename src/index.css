@@ -28,9 +28,9 @@
   --muted: #5f6b85;
   --accent: #3b6cf6;
   --accent2: #8b5cf6;
-  --up: #0ea572;
-  --down: #e5364f;
-  --warn: #c07a12;
+  --up: #047857;
+  --down: #c81e3a;
+  --warn: #a8610a;
   --card: rgba(255, 255, 255, 0.78);
   --edge-1: rgba(15, 23, 42, 0.10);
   --edge-2: rgba(15, 23, 42, 0.03);
@@ -90,6 +90,7 @@ body::after {
 @layer components {
   .card {
     position: relative;
+    min-width: 0; /* lets a card in a grid shrink to the screen so its own table can scroll */
     border-radius: 1.15rem;
     padding: 1rem;
     border: 1px solid transparent;
@@ -172,6 +173,15 @@ table td, table th { white-space: nowrap; }
 table tbody tr { @apply transition-colors hover:bg-accent/5; }
 table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%, transparent); }
 
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.skeleton {
+  border-radius: 1rem; border: 1px solid var(--line);
+  background: linear-gradient(100deg, var(--panel) 30%, var(--panel2) 50%, var(--panel) 70%) 0 0 / 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+/* On phones a dialog is a bottom sheet that slides up. */
+@media (max-width: 767px) { .sheet { animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; } }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes marquee { to { transform: translateX(-50%); } }
 @keyframes aurora { 0% { transform: translate3d(0, 0, 0) scale(1); } 100% { transform: translate3d(-4%, 3%, 0) scale(1.08); } }
@@ -179,7 +189,7 @@ table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%,
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.97); } to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  body::before, .page, .rise, .stagger > *, .ticker-track, .dot-live { animation: none !important; }
+  body::before, .page, .rise, .sheet, .skeleton, .stagger > *, .ticker-track, .dot-live { animation: none !important; }
   .ticker { overflow-x: auto; }
   * { transition: none !important; }
 }
@@ -215,3 +225,19 @@ table tbody tr.day-row:hover { background: color-mix(in srgb, var(--panel2) 40%,
 input[type='number'] { -moz-appearance: textfield; appearance: textfield; }
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
+
+/* ---- Appearance preferences (Settings > General). Set on <html> by lib/appearance.ts ---- */
+:root[data-accent='violet'] { --accent: #7c4dff; --accent2: #c026d3; }
+:root[data-accent='teal'] { --accent: #0d9488; --accent2: #0891b2; }
+:root[data-accent='amber'] { --accent: #b45309; --accent2: #d97706; }
+:root[data-accent='rose'] { --accent: #e11d48; --accent2: #db2777; }
+:root.dark[data-accent='violet'] { --accent: #a78bfa; --accent2: #e879f9; }
+:root.dark[data-accent='teal'] { --accent: #2dd4bf; --accent2: #22d3ee; }
+:root.dark[data-accent='amber'] { --accent: #fbbf24; --accent2: #fb923c; }
+:root.dark[data-accent='rose'] { --accent: #fb7185; --accent2: #f472b6; }
+/* white text on the amber button needs the darker end of the gradient in dark mode */
+:root.dark[data-accent='amber'] .btn { color: #1c1100; }
+
+html[data-text='small'] { font-size: 14.5px; }
+html[data-text='large'] { font-size: 17.5px; }
+
