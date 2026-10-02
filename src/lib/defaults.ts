@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: Settings = {
   mistakeTags: ['FOMO', 'Revenge trade', 'Moved SL', 'Oversized', 'Early exit', 'No SL'],
   exitMistakes: ['Early exit', 'Moved SL'],
   risk: { dailyLossLimit: 2000, maxConsecutiveLosses: 3, maxTradesPerDay: 10 },
-  calculator: { capital: 100000, maxLoss: 1000 },
+  calculator: { capital: 100000, maxLoss: 1000, leverage: 1 },
   goals: { profit: 0, maxLoss: 0 },
   cooldown: { minutes: 15, offerAfterLoss: true, sound: true, notify: false },
   checklist: {

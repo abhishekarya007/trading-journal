@@ -71,3 +71,38 @@ describe('dailyLeft', () => {
     expect(dailyLeft(0, -100)).toBeNull()
   })
 })
+
+describe('never more than the money allows', () => {
+  // risking 2000 on a 5-rupee stop at 500 would buy 400 shares = ₹2,00,000, but only ₹1,00,000 is available
+  const tight = { limit: 2000, entry: 500, stop: 495, side: 'Long' as const, rates }
+  it('without a cap, the risk limit alone decides (and can exceed capital)', () => {
+    const s = sizeForLoss(tight)!
+    expect(s.positionValue).toBeGreaterThan(100000)
+    expect(s.cappedByCapital).toBe(false)
+    expect(s.maxQty).toBeNull()
+  })
+  it('with a cap, the quantity is cut to what the money buys, and the loss gets smaller, not bigger', () => {
+    const free = sizeForLoss(tight)!
+    const s = sizeForLoss({ ...tight, maxValue: 100000 })!
+    expect(s.qty).toBe(200)
+    expect(s.positionValue).toBeLessThanOrEqual(100000)
+    expect(s.cappedByCapital).toBe(true)
+    expect(s.riskQty).toBe(free.qty)
+    expect(s.loss).toBeLessThan(2000)
+    expect(s.loss).toBeLessThan(free.loss)
+  })
+  it('leverage raises the cap', () => {
+    expect(sizeForLoss({ ...tight, maxValue: 200000 })!.qty).toBeLessThanOrEqual(400)
+    expect(sizeForLoss({ ...tight, maxValue: 200000 })!.qty).toBeGreaterThan(200)
+  })
+  it('a cap that is not reached changes nothing', () => {
+    const loose = sizeForLoss({ ...base, maxValue: 1_000_000 })!
+    expect(loose.cappedByCapital).toBe(false)
+    expect(loose.qty).toBe(sizeForLoss(base)!.qty)
+  })
+  it('a price above the whole capital gives zero shares', () => {
+    const s = sizeForLoss({ ...base, entry: 5000, stop: 4950, limit: 1000, maxValue: 3000 })!
+    expect(s.qty).toBe(0)
+    expect(s.maxQty).toBe(0)
+  })
+})

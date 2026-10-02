@@ -21,10 +21,14 @@ export interface SizeInput {
   target?: number
   side: Side
   rates: ChargeRates
+  maxValue?: number // the most the position may cost, e.g. your capital (times leverage). Leave out for no cap
 }
 
 export interface SizeResult {
   qty: number
+  riskQty: number // what the loss limit alone would allow
+  cappedByCapital: boolean // the position was cut down so it fits inside maxValue
+  maxQty: number | null // the most shares maxValue buys (null when there is no cap)
   perShare: number
   positionValue: number
   atStop: Outcome // the trade if the stop-loss is hit
@@ -56,6 +60,12 @@ export function sizeForLoss(i: SizeInput): SizeResult | null {
     qty = lo
   }
 
+  // Never suggest more shares than the money allows. Less quantity means less loss, so the loss limit still holds.
+  const riskQty = qty
+  const maxQty = i.maxValue !== undefined && i.maxValue >= 0 ? Math.floor(i.maxValue / i.entry) : null
+  const cappedByCapital = maxQty !== null && riskQty > maxQty
+  if (cappedByCapital) qty = maxQty!
+
   const atStop = outcomeAt(i.side, i.entry, i.stop, qty, i.rates)
   const loss = qty > 0 ? -atStop.net : 0
   let atTarget: SizeResult['atTarget'] = null
@@ -64,7 +74,7 @@ export function sizeForLoss(i: SizeInput): SizeResult | null {
     const rewardPerShare = Math.abs(i.target - i.entry)
     atTarget = { ...o, rewardPerShare, priceRR: rewardPerShare / perShare, netRR: qty > 0 && loss > 0 ? o.net / loss : null }
   }
-  return { qty, perShare, positionValue: qty * i.entry, atStop, loss, priceLoss: qty > 0 ? -atStop.gross : 0, wrongSide, atTarget }
+  return { qty, riskQty, cappedByCapital, maxQty, perShare, positionValue: qty * i.entry, atStop, loss, priceLoss: qty > 0 ? -atStop.gross : 0, wrongSide, atTarget }
 }
 
 /** How much of today's loss budget is left: the limit minus what you've already lost today (profits don't add to it). */

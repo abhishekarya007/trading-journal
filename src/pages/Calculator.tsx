@@ -24,6 +24,7 @@ export default function Calculator({ rows, settings, save }: Props) {
   const [target, setTarget] = useState('')
   const [capital, setCapital] = useState(String(settings.calculator.capital))
   const [loss, setLoss] = useState(String(settings.calculator.maxLoss))
+  const [leverage, setLeverage] = useState(settings.calculator.leverage || 1)
 
   const cap = num(capital)
   const limit = num(loss)
@@ -31,8 +32,9 @@ export default function Calculator({ rows, settings, save }: Props) {
   const sliderMax = Math.max(5, Math.ceil(pct)) // the thumb always stays on the track, even for a big typed amount
 
   const res = useMemo(
-    () => sizeForLoss({ limit, entry: num(entry), stop: num(stop), target: num(target) || undefined, side, rates: settings.rates }),
-    [limit, entry, stop, target, side, settings.rates],
+    // The position can never cost more than your capital (times any leverage your broker gives you).
+    () => sizeForLoss({ limit, entry: num(entry), stop: num(stop), target: num(target) || undefined, side, rates: settings.rates, maxValue: cap > 0 ? cap * leverage : undefined }),
+    [limit, entry, stop, target, side, settings.rates, cap, leverage],
   )
 
   const todayNet = useMemo(() => rows.filter((r) => r.trade.date === localDate()).reduce((s, r) => s + r.res.net, 0), [rows])
@@ -40,12 +42,12 @@ export default function Calculator({ rows, settings, save }: Props) {
   const monthCap = monthlyCapital(rows, settings, localDate().slice(0, 7)).get(localDate().slice(0, 7))?.capital
 
   const setLossFromPct = (p: number) => setLoss(String(Math.round((cap * p) / 100)))
-  const isDefault = cap === settings.calculator.capital && limit === settings.calculator.maxLoss
+  const isDefault = cap === settings.calculator.capital && limit === settings.calculator.maxLoss && leverage === (settings.calculator.leverage || 1)
   const saveDefaults = () => {
-    save({ ...settings, calculator: { capital: cap, maxLoss: limit } })
+    save({ ...settings, calculator: { capital: cap, maxLoss: limit, leverage } })
     toast('Saved as your defaults')
   }
-  const resetDefaults = () => { setCapital(String(settings.calculator.capital)); setLoss(String(settings.calculator.maxLoss)) }
+  const resetDefaults = () => { setCapital(String(settings.calculator.capital)); setLoss(String(settings.calculator.maxLoss)); setLeverage(settings.calculator.leverage || 1) }
 
   const copyQty = async () => {
     if (!res || res.qty < 1) return
@@ -92,6 +94,16 @@ export default function Calculator({ rows, settings, save }: Props) {
                 {monthCap !== undefined && monthCap !== cap && (
                   <button type="button" className="btn-ghost shrink-0 !px-2.5 !py-1.5 text-xs" onClick={() => setCapital(String(monthCap))} title="Use the trading capital you set for this month">This month’s</button>
                 )}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <span className="label !mb-0">Leverage</span>
+                <span className="text-xs text-muted">{leverage === 1 ? 'position stays inside your capital' : `position can be up to ${inr(Math.round(cap * leverage))}`}</span>
+              </div>
+              <div className="seg" role="group" aria-label="Leverage">
+                {[1, 2, 3, 5].map((n) => <button key={n} type="button" aria-pressed={leverage === n} onClick={() => setLeverage(n)}>{n}×</button>)}
               </div>
             </div>
 
@@ -144,7 +156,14 @@ export default function Calculator({ rows, settings, save }: Props) {
                 </div>
               </div>
 
-              {res.qty < 1 && <p className="rounded-xl border border-warn/40 bg-warn/10 px-3.5 py-2.5 text-sm">⚠ Even a single share would lose more than your limit at this stop-loss. Raise the limit or tighten the stop.</p>}
+              {res.cappedByCapital && (
+                <p className="rounded-xl border border-accent/40 bg-accent/10 px-3.5 py-2.5 text-sm">
+                  Limited by your capital. Your risk limit alone would allow <b className="num">{res.riskQty}</b> shares ({inr(Math.round(res.riskQty * num(entry)))}), but only <b className="num">{res.maxQty}</b> fit in {leverage === 1 ? 'your capital' : `${inr(Math.round(cap * leverage))} (${leverage}× leverage)`}.
+                  So you risk only <b className="num">{inr(Math.round(res.loss))}</b> here, less than your limit.{leverage === 1 && <> If your broker gives intraday leverage, set it above.</>}
+                </p>
+              )}
+
+              {res.qty < 1 && <p className="rounded-xl border border-warn/40 bg-warn/10 px-3.5 py-2.5 text-sm">{res.cappedByCapital || (res.maxQty === 0 && res.riskQty > 0) ? '⚠ A single share costs more than your capital. Raise the capital or leverage.' : '⚠ Even a single share would lose more than your limit at this stop-loss. Raise the limit or tighten the stop.'}</p>}
 
               {res.qty > 0 && (
                 <div className="rounded-xl border border-down/30 bg-down/5 p-4">
