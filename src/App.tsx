@@ -247,16 +247,11 @@ export default function App() {
 
         {collapsed ? (
           <>
-            <button className="btn mb-2 !h-11 w-full !px-0" onClick={addTrade} title="New trade  ( N )" aria-label="New trade"><IconPlus /></button>
             <button onClick={() => setPalette(true)} title="Search  ( ⌘K )" aria-label="Search"
               className="mb-5 flex h-11 w-full items-center justify-center rounded-xl border border-line bg-panel2/50 text-muted transition hover:border-accent/50 hover:text-fg"><IconSearch /></button>
           </>
         ) : (
           <>
-            <button className="btn mb-2 w-full !justify-between" onClick={addTrade}>
-              <span className="flex items-center gap-2"><IconPlus /> New trade</span>
-              <span className="rounded-md bg-white/20 px-1.5 font-mono text-[10px]">N</span>
-            </button>
             <button onClick={() => setPalette(true)} className="mb-5 flex w-full items-center gap-2 rounded-xl border border-line bg-panel2/50 px-3 py-2 text-sm text-muted transition hover:border-accent/50 hover:text-fg">
               <IconSearch /> <span className="flex-1 text-left">Search…</span> <span className="kbd">⌘K</span>
             </button>
